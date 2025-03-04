@@ -96,7 +96,7 @@ export const DoctorList = () => {
                   <SelectValue placeholder="Department" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Departments</SelectItem>
+                  <SelectItem value="all-departments">All Departments</SelectItem>
                   {departments.map((dept) => (
                     <SelectItem key={dept} value={dept}>{dept}</SelectItem>
                   ))}
@@ -107,7 +107,7 @@ export const DoctorList = () => {
                   <SelectValue placeholder="Specialty" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Specialties</SelectItem>
+                  <SelectItem value="all-specialties">All Specialties</SelectItem>
                   {specialties.map((specialty) => (
                     <SelectItem key={specialty} value={specialty}>{specialty}</SelectItem>
                   ))}
