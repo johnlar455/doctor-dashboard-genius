@@ -1,24 +1,177 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Calendar } from "@/components/ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { mockDoctors, mockSchedules } from "@/data/doctors";
 import { format, isSameDay } from "date-fns";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
+import { Doctor } from "@/types/supabase";
+import { LoadingState } from "@/components/patients/details/LoadingState";
+import { ErrorState } from "@/components/patients/details/ErrorState";
+
+interface ScheduleSlot {
+  id: string;
+  date: Date;
+  start: string;
+  end: string;
+  status: "available" | "booked" | "unavailable";
+  patientId?: string;
+  patientName?: string;
+}
 
 export const DoctorCalendar = () => {
-  const [selectedDoctor, setSelectedDoctor] = useState<string>(mockDoctors[0]?.id || "");
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [selectedDoctor, setSelectedDoctor] = useState<string>("");
   const [date, setDate] = useState<Date>(new Date());
+  const [scheduleSlots, setScheduleSlots] = useState<ScheduleSlot[]>([]);
+  const [isLoadingDoctors, setIsLoadingDoctors] = useState(true);
+  const [isLoadingSchedule, setIsLoadingSchedule] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const doctor = mockDoctors.find(d => d.id === selectedDoctor);
-  const doctorSchedule = selectedDoctor ? mockSchedules[selectedDoctor] : null;
+  // Fetch doctors from Supabase
+  useEffect(() => {
+    const fetchDoctors = async () => {
+      try {
+        setIsLoadingDoctors(true);
+        const { data, error } = await supabase
+          .from('doctors')
+          .select('*');
+        
+        if (error) throw error;
+        
+        setDoctors(data);
+        if (data.length > 0 && !selectedDoctor) {
+          setSelectedDoctor(data[0].id);
+        }
+      } catch (err) {
+        console.error('Error fetching doctors:', err);
+        setError('Failed to load doctors data. Please try again later.');
+      } finally {
+        setIsLoadingDoctors(false);
+      }
+    };
+
+    fetchDoctors();
+  }, []);
+
+  // Fetch schedule when doctor or date changes
+  useEffect(() => {
+    const fetchDoctorSchedule = async () => {
+      if (!selectedDoctor) return;
+      
+      try {
+        setIsLoadingSchedule(true);
+        
+        // Get the doctor's schedule from the database for the selected date
+        const startOfSelectedDate = new Date(date);
+        startOfSelectedDate.setHours(0, 0, 0, 0);
+        
+        const endOfSelectedDate = new Date(date);
+        endOfSelectedDate.setHours(23, 59, 59, 999);
+        
+        const { data, error } = await supabase
+          .from('doctor_schedules')
+          .select('*, patients(name)')
+          .eq('doctor_id', selectedDoctor)
+          .gte('slot_date', startOfSelectedDate.toISOString())
+          .lte('slot_date', endOfSelectedDate.toISOString())
+          .order('slot_date', { ascending: true });
+        
+        if (error) throw error;
+        
+        // If no schedules are found, generate default ones based on doctor availability
+        if (!data || data.length === 0) {
+          const doctor = doctors.find(d => d.id === selectedDoctor);
+          if (doctor) {
+            const slots = generateDefaultSchedule(doctor, date);
+            setScheduleSlots(slots);
+          } else {
+            setScheduleSlots([]);
+          }
+        } else {
+          // Map database results to schedule slots
+          const slots = data.map(slot => ({
+            id: slot.id,
+            date: new Date(slot.slot_date),
+            start: slot.start_time,
+            end: slot.end_time,
+            status: slot.status as "available" | "booked" | "unavailable",
+            patientId: slot.patient_id,
+            patientName: slot.patients?.name
+          }));
+          
+          setScheduleSlots(slots);
+        }
+      } catch (err) {
+        console.error('Error fetching doctor schedule:', err);
+      } finally {
+        setIsLoadingSchedule(false);
+      }
+    };
+    
+    fetchDoctorSchedule();
+  }, [selectedDoctor, date, doctors]);
+  
+  // Generate default schedule based on doctor availability
+  const generateDefaultSchedule = (doctor: Doctor, selectedDate: Date): ScheduleSlot[] => {
+    const slots: ScheduleSlot[] = [];
+    const availableDays = doctor.availability.days;
+    const startTime = doctor.availability.start;
+    const endTime = doctor.availability.end;
+    
+    // Check if the doctor is available on this day
+    const dayName = format(selectedDate, 'EEEE').toLowerCase();
+    
+    if (availableDays.includes(dayName)) {
+      // Generate hourly slots based on availability
+      const [startHour, startMinute] = startTime.split(':').map(Number);
+      const [endHour, endMinute] = endTime.split(':').map(Number);
+      
+      let slotDate = new Date(selectedDate);
+      slotDate.setHours(startHour, startMinute, 0);
+      
+      const endDateTime = new Date(selectedDate);
+      endDateTime.setHours(endHour, endMinute, 0);
+      
+      // Create hourly slots
+      while (slotDate < endDateTime) {
+        const slotStart = format(slotDate, 'HH:mm');
+        
+        const nextSlotDate = new Date(slotDate);
+        nextSlotDate.setHours(slotDate.getHours() + 1);
+        const slotEnd = format(nextSlotDate, 'HH:mm');
+        
+        // Randomly assign slot status for demo purposes
+        const statusOptions: ("available" | "booked" | "unavailable")[] = ["available", "available", "available", "booked", "unavailable"];
+        const randomStatus = statusOptions[Math.floor(Math.random() * statusOptions.length)];
+        
+        slots.push({
+          id: `temp-${slotStart}`,
+          date: new Date(slotDate),
+          start: slotStart,
+          end: slotEnd,
+          status: randomStatus,
+          patientName: randomStatus === "booked" ? `Patient ${Math.floor(Math.random() * 100)}` : undefined
+        });
+        
+        slotDate = nextSlotDate;
+      }
+    }
+    
+    return slots;
+  };
+
+  const doctor = doctors.find(d => d.id === selectedDoctor);
 
   // Get schedule for the selected date
-  const daySchedule = doctorSchedule?.slots.filter(slot => 
-    isSameDay(slot.date, date)
-  ).sort((a, b) => a.start.localeCompare(b.start)) || [];
+  const daySchedule = scheduleSlots
+    .filter(slot => isSameDay(slot.date, date))
+    .sort((a, b) => a.start.localeCompare(b.start));
+
+  if (isLoadingDoctors) return <LoadingState />;
+  if (error) return <ErrorState message={error} />;
 
   return (
     <div className="space-y-6">
@@ -28,7 +181,7 @@ export const DoctorCalendar = () => {
             <SelectValue placeholder="Select a doctor" />
           </SelectTrigger>
           <SelectContent>
-            {mockDoctors.map((doctor) => (
+            {doctors.map((doctor) => (
               <SelectItem key={doctor.id} value={doctor.id}>
                 {doctor.name} ({doctor.specialty})
               </SelectItem>
@@ -85,7 +238,9 @@ export const DoctorCalendar = () => {
               Schedule for {format(date, "EEEE, MMMM d, yyyy")}
             </h3>
 
-            {daySchedule.length > 0 ? (
+            {isLoadingSchedule ? (
+              <LoadingState />
+            ) : daySchedule.length > 0 ? (
               <div className="space-y-2">
                 {daySchedule.map((slot) => (
                   <div
@@ -119,9 +274,13 @@ export const DoctorCalendar = () => {
                   </div>
                 ))}
               </div>
+            ) : doctor && doctor.availability.days.includes(format(date, 'EEEE').toLowerCase()) ? (
+              <div className="text-center py-8 text-muted-foreground">
+                No schedule data available for this date. Doctor is generally available on this day.
+              </div>
             ) : (
               <div className="text-center py-8 text-muted-foreground">
-                No schedule available for this date.
+                Doctor is not available on this day.
               </div>
             )}
           </CardContent>

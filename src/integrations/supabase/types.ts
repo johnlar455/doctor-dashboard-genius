@@ -9,6 +9,93 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      doctor_schedules: {
+        Row: {
+          created_at: string
+          doctor_id: string
+          end_time: string
+          id: string
+          patient_id: string | null
+          slot_date: string
+          start_time: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          doctor_id: string
+          end_time: string
+          id?: string
+          patient_id?: string | null
+          slot_date: string
+          start_time: string
+          status: string
+        }
+        Update: {
+          created_at?: string
+          doctor_id?: string
+          end_time?: string
+          id?: string
+          patient_id?: string | null
+          slot_date?: string
+          start_time?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "doctor_schedules_doctor_id_fkey"
+            columns: ["doctor_id"]
+            isOneToOne: false
+            referencedRelation: "doctors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "doctor_schedules_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      doctors: {
+        Row: {
+          availability: Json
+          avatar: string | null
+          bio: string
+          created_at: string
+          department: string
+          email: string
+          id: string
+          name: string
+          phone: string
+          specialty: string
+        }
+        Insert: {
+          availability: Json
+          avatar?: string | null
+          bio: string
+          created_at?: string
+          department: string
+          email: string
+          id?: string
+          name: string
+          phone: string
+          specialty: string
+        }
+        Update: {
+          availability?: Json
+          avatar?: string | null
+          bio?: string
+          created_at?: string
+          department?: string
+          email?: string
+          id?: string
+          name?: string
+          phone?: string
+          specialty?: string
+        }
+        Relationships: []
+      }
       medical_records: {
         Row: {
           created_at: string

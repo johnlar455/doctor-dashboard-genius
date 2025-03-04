@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { 
   Card, 
   CardContent
@@ -23,49 +23,119 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Doctor, mockDoctors, departments, specialties } from "@/data/doctors";
+import { departments, specialties } from "@/data/doctors";
 import { Search, Edit, Trash, Calendar } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
 import { EditDoctorDialog } from "./EditDoctorDialog";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { DoctorScheduleDialog } from "./DoctorScheduleDialog";
+import { supabase } from "@/integrations/supabase/client";
+import { Doctor } from "@/types/supabase";
+import { LoadingState } from "@/components/patients/details/LoadingState";
+import { ErrorState } from "@/components/patients/details/ErrorState";
 
 export const DoctorList = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [departmentFilter, setDepartmentFilter] = useState<string>("");
   const [specialtyFilter, setSpecialtyFilter] = useState<string>("");
-  const [doctors, setDoctors] = useState<Doctor[]>(mockDoctors);
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [editingDoctor, setEditingDoctor] = useState<Doctor | null>(null);
   const [viewingSchedule, setViewingSchedule] = useState<Doctor | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
+
+  useEffect(() => {
+    const fetchDoctors = async () => {
+      try {
+        setIsLoading(true);
+        const { data, error } = await supabase
+          .from('doctors')
+          .select('*');
+        
+        if (error) throw error;
+        
+        setDoctors(data);
+        setError(null);
+      } catch (err) {
+        console.error('Error fetching doctors:', err);
+        setError('Failed to load doctors data. Please try again later.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchDoctors();
+  }, []);
 
   const filteredDoctors = useMemo(() => {
     return doctors.filter(doctor => {
       const matchesSearch = doctor.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                            doctor.email.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesDepartment = !departmentFilter || doctor.department === departmentFilter;
-      const matchesSpecialty = !specialtyFilter || doctor.specialty === specialtyFilter;
+      const matchesDepartment = !departmentFilter || departmentFilter === "all-departments" || doctor.department === departmentFilter;
+      const matchesSpecialty = !specialtyFilter || specialtyFilter === "all-specialties" || doctor.specialty === specialtyFilter;
 
       return matchesSearch && matchesDepartment && matchesSpecialty;
     });
   }, [doctors, searchQuery, departmentFilter, specialtyFilter]);
 
-  const handleDeleteDoctor = (id: string) => {
-    setDoctors(doctors.filter(doc => doc.id !== id));
-    toast({
-      title: "Doctor deleted",
-      description: "The doctor profile has been removed successfully.",
-    });
+  const handleDeleteDoctor = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('doctors')
+        .delete()
+        .eq('id', id);
+      
+      if (error) throw error;
+      
+      setDoctors(doctors.filter(doc => doc.id !== id));
+      toast({
+        title: "Doctor deleted",
+        description: "The doctor profile has been removed successfully.",
+      });
+    } catch (err) {
+      console.error('Error deleting doctor:', err);
+      toast({
+        title: "Error",
+        description: "Failed to delete doctor. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
 
-  const handleSaveDoctor = (updatedDoctor: Doctor) => {
-    setDoctors(doctors.map(doc => doc.id === updatedDoctor.id ? updatedDoctor : doc));
-    setEditingDoctor(null);
-    toast({
-      title: "Doctor updated",
-      description: "The doctor profile has been updated successfully.",
-    });
+  const handleSaveDoctor = async (updatedDoctor: Doctor) => {
+    try {
+      const { data, error } = await supabase
+        .from('doctors')
+        .update({
+          name: updatedDoctor.name,
+          specialty: updatedDoctor.specialty,
+          department: updatedDoctor.department,
+          email: updatedDoctor.email,
+          phone: updatedDoctor.phone,
+          bio: updatedDoctor.bio,
+          availability: updatedDoctor.availability
+        })
+        .eq('id', updatedDoctor.id)
+        .select();
+      
+      if (error) throw error;
+      
+      setDoctors(doctors.map(doc => doc.id === updatedDoctor.id ? (data[0] as Doctor) : doc));
+      setEditingDoctor(null);
+      toast({
+        title: "Doctor updated",
+        description: "The doctor profile has been updated successfully.",
+      });
+    } catch (err) {
+      console.error('Error updating doctor:', err);
+      toast({
+        title: "Error",
+        description: "Failed to update doctor. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
 
   const getInitials = (name: string) => {
@@ -75,6 +145,9 @@ export const DoctorList = () => {
       .join('')
       .toUpperCase();
   };
+
+  if (isLoading) return <LoadingState />;
+  if (error) return <ErrorState message={error} />;
 
   return (
     <>
@@ -157,7 +230,7 @@ export const DoctorList = () => {
                         </div>
                       </TableCell>
                       <TableCell className="hidden lg:table-cell">
-                        {format(doctor.createdAt, "MMM d, yyyy")}
+                        {format(new Date(doctor.created_at), "MMM d, yyyy")}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">

@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DoctorList } from "@/components/doctors/DoctorList";
@@ -8,10 +8,28 @@ import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { AddDoctorDialog } from "@/components/doctors/AddDoctorDialog";
 import { useToast } from "@/components/ui/use-toast";
+import { Doctor } from "@/types/supabase";
+import { supabase } from "@/integrations/supabase/client";
 
 const Doctors = () => {
   const [isAddDoctorOpen, setIsAddDoctorOpen] = useState(false);
+  const [doctorAdded, setDoctorAdded] = useState<boolean>(false);
   const { toast } = useToast();
+
+  const handleDoctorAdded = (doctor: Doctor) => {
+    toast({
+      title: "Doctor added successfully",
+      description: `${doctor.name} has been added to the system.`
+    });
+    setDoctorAdded(true);
+  };
+
+  // Reset the doctorAdded state after it has been handled
+  useEffect(() => {
+    if (doctorAdded) {
+      setDoctorAdded(false);
+    }
+  }, [doctorAdded]);
 
   return (
     <DashboardLayout>
@@ -24,7 +42,7 @@ const Doctors = () => {
             </p>
           </div>
           <Button onClick={() => setIsAddDoctorOpen(true)}>
-            <Plus size={16} />
+            <Plus size={16} className="mr-1.5" />
             <span>Add Doctor</span>
           </Button>
         </div>
@@ -35,7 +53,7 @@ const Doctors = () => {
             <TabsTrigger value="calendar">Calendar View</TabsTrigger>
           </TabsList>
           <TabsContent value="list" className="mt-6">
-            <DoctorList />
+            <DoctorList key={doctorAdded ? 'refreshed' : 'initial'} />
           </TabsContent>
           <TabsContent value="calendar" className="mt-6">
             <DoctorCalendar />
@@ -46,12 +64,7 @@ const Doctors = () => {
       <AddDoctorDialog 
         open={isAddDoctorOpen} 
         onOpenChange={setIsAddDoctorOpen} 
-        onSuccess={() => {
-          toast({
-            title: "Doctor added successfully",
-            description: "The doctor profile has been created."
-          });
-        }}
+        onSuccess={handleDoctorAdded}
       />
     </DashboardLayout>
   );

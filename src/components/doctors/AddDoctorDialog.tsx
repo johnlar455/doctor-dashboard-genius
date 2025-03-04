@@ -13,7 +13,10 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { mockDoctors, departments, specialties, Doctor } from "@/data/doctors";
+import { departments, specialties } from "@/data/doctors";
+import { Doctor } from "@/types/supabase";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface AddDoctorDialogProps {
   open: boolean;
@@ -37,6 +40,7 @@ export const AddDoctorDialog: React.FC<AddDoctorDialogProps> = ({
     startTime: "09:00",
     endTime: "17:00"
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -47,42 +51,67 @@ export const AddDoctorDialog: React.FC<AddDoctorDialogProps> = ({
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Generate a new doctor object
-    const newDoctor: Doctor = {
-      id: `d${mockDoctors.length + 1}`,
-      name: formData.name,
-      avatar: "/placeholder.svg",
-      specialty: formData.specialty,
-      department: formData.department,
-      email: formData.email,
-      phone: formData.phone,
-      bio: formData.bio,
-      availability: {
-        start: formData.startTime,
-        end: formData.endTime,
-        days: formData.availableDays,
-      },
-      createdAt: new Date(),
-    };
+    if (formData.availableDays.length === 0) {
+      toast.error("Please select at least one available day");
+      return;
+    }
     
-    onSuccess(newDoctor);
-    onOpenChange(false);
-    
-    // Reset form
-    setFormData({
-      name: "",
-      specialty: "",
-      department: "",
-      email: "",
-      phone: "",
-      bio: "",
-      availableDays: [],
-      startTime: "09:00",
-      endTime: "17:00"
-    });
+    try {
+      setIsSubmitting(true);
+      
+      // Generate a new doctor object
+      const newDoctor = {
+        name: formData.name,
+        avatar: "/placeholder.svg",
+        specialty: formData.specialty,
+        department: formData.department,
+        email: formData.email,
+        phone: formData.phone,
+        bio: formData.bio,
+        availability: {
+          start: formData.startTime,
+          end: formData.endTime,
+          days: formData.availableDays,
+        }
+      };
+      
+      // Insert the doctor into Supabase
+      const { data, error } = await supabase
+        .from('doctors')
+        .insert(newDoctor)
+        .select();
+      
+      if (error) throw error;
+      
+      // Call onSuccess with the newly created doctor
+      if (data && data.length > 0) {
+        onSuccess(data[0] as Doctor);
+      }
+      
+      onOpenChange(false);
+      
+      // Reset form
+      setFormData({
+        name: "",
+        specialty: "",
+        department: "",
+        email: "",
+        phone: "",
+        bio: "",
+        availableDays: [],
+        startTime: "09:00",
+        endTime: "17:00"
+      });
+      
+    } catch (err) {
+      console.error('Error adding doctor:', err);
+      toast.error("Failed to add doctor. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -242,7 +271,9 @@ export const AddDoctorDialog: React.FC<AddDoctorDialogProps> = ({
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit">Add Doctor</Button>
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? "Adding..." : "Add Doctor"}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>
