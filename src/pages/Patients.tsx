@@ -9,11 +9,23 @@ import { PatientList } from "@/components/patients/PatientList";
 import { PatientDetails } from "@/components/patients/PatientDetails";
 import { AddPatientDialog } from "@/components/patients/AddPatientDialog";
 import { useToast } from "@/hooks/use-toast";
+import { 
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const Patients = () => {
   const [isAddPatientOpen, setIsAddPatientOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState("list");
+  const [editPatient, setEditPatient] = useState<any>(null);
+  const [statusFilter, setStatusFilter] = useState<string>("all");
   const { toast } = useToast();
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -22,9 +34,31 @@ const Patients = () => {
 
   const handleAddPatientSuccess = () => {
     toast({
-      title: "Patient added successfully",
-      description: "The patient profile has been created.",
+      title: "Success",
+      description: editPatient 
+        ? "The patient profile has been updated." 
+        : "The patient profile has been created.",
     });
+    setEditPatient(null);
+    // Refresh patient list by forcing a re-render
+    setSearchQuery(prev => prev + " ");
+    setTimeout(() => {
+      setSearchQuery(prev => prev.trim());
+    }, 10);
+  };
+
+  const handleEditPatient = (patient: any) => {
+    setEditPatient(patient);
+    setIsAddPatientOpen(true);
+  };
+
+  const handleSelectPatient = (id: string) => {
+    setSelectedPatientId(id);
+    setActiveTab("details");
+  };
+
+  const handleFilterStatus = (status: string) => {
+    setStatusFilter(status);
   };
 
   return (
@@ -37,7 +71,10 @@ const Patients = () => {
               Manage patient profiles and medical history
             </p>
           </div>
-          <Button onClick={() => setIsAddPatientOpen(true)}>
+          <Button onClick={() => {
+            setEditPatient(null);
+            setIsAddPatientOpen(true);
+          }}>
             <Plus size={16} />
             <span>Add Patient</span>
           </Button>
@@ -54,12 +91,31 @@ const Patients = () => {
               onChange={handleSearch}
             />
           </div>
-          <Button variant="outline" size="icon" className="shrink-0">
-            <Filter size={16} />
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="icon" className="shrink-0">
+                <Filter size={16} />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-56">
+              <DropdownMenuLabel>Filter by Status</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuGroup>
+                <DropdownMenuItem onClick={() => handleFilterStatus("all")}>
+                  All
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleFilterStatus("Active")}>
+                  Active
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleFilterStatus("Inactive")}>
+                  Inactive
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
         
-        <Tabs defaultValue="list" className="w-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-[400px] grid-cols-2">
             <TabsTrigger value="list">List View</TabsTrigger>
             <TabsTrigger value="details">Patient Details</TabsTrigger>
@@ -67,18 +123,25 @@ const Patients = () => {
           <TabsContent value="list" className="mt-6">
             <PatientList 
               searchQuery={searchQuery}
-              onSelectPatient={(id) => setSelectedPatientId(id)}
+              onSelectPatient={handleSelectPatient}
               selectedPatientId={selectedPatientId}
+              onEditPatient={handleEditPatient}
             />
           </TabsContent>
           <TabsContent value="details" className="mt-6">
             {selectedPatientId ? (
-              <PatientDetails patientId={selectedPatientId} />
+              <PatientDetails 
+                patientId={selectedPatientId} 
+                onEditPatient={handleEditPatient}
+              />
             ) : (
               <div className="flex flex-col items-center justify-center p-12 text-center bg-muted/20 rounded-lg border border-dashed">
                 <h3 className="text-lg font-medium mb-2">No Patient Selected</h3>
                 <p className="text-muted-foreground mb-4">Select a patient from the list view to see their details</p>
-                <Button variant="outline" onClick={() => setIsAddPatientOpen(true)}>
+                <Button variant="outline" onClick={() => {
+                  setEditPatient(null);
+                  setIsAddPatientOpen(true);
+                }}>
                   <Plus size={16} className="mr-1" />
                   Add New Patient
                 </Button>
@@ -92,6 +155,7 @@ const Patients = () => {
         open={isAddPatientOpen} 
         onOpenChange={setIsAddPatientOpen} 
         onSuccess={handleAddPatientSuccess}
+        editPatient={editPatient}
       />
     </DashboardLayout>
   );

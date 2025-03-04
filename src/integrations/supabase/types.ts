@@ -9,7 +9,92 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      medical_records: {
+        Row: {
+          created_at: string
+          date: string
+          description: string
+          id: string
+          patient_id: string
+          prescriptions: string[] | null
+          type: string
+        }
+        Insert: {
+          created_at?: string
+          date?: string
+          description: string
+          id?: string
+          patient_id: string
+          prescriptions?: string[] | null
+          type: string
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          description?: string
+          id?: string
+          patient_id?: string
+          prescriptions?: string[] | null
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "medical_records_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      patients: {
+        Row: {
+          address: string | null
+          age: number
+          blood_type: string | null
+          created_at: string
+          date_of_birth: string
+          email: string
+          emergency_contact: string | null
+          gender: string
+          id: string
+          last_visit: string | null
+          name: string
+          phone: string
+          status: string
+        }
+        Insert: {
+          address?: string | null
+          age: number
+          blood_type?: string | null
+          created_at?: string
+          date_of_birth: string
+          email: string
+          emergency_contact?: string | null
+          gender: string
+          id?: string
+          last_visit?: string | null
+          name: string
+          phone: string
+          status?: string
+        }
+        Update: {
+          address?: string | null
+          age?: number
+          blood_type?: string | null
+          created_at?: string
+          date_of_birth?: string
+          email?: string
+          emergency_contact?: string | null
+          gender?: string
+          id?: string
+          last_visit?: string | null
+          name?: string
+          phone?: string
+          status?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
