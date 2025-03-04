@@ -1,5 +1,5 @@
 
-import React from "react";
+import React, { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from "recharts";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -12,6 +12,8 @@ interface DoctorPerformanceProps {
 }
 
 export const DoctorPerformance: React.FC<DoctorPerformanceProps> = ({ dateRange }) => {
+  const [selectedDoctor, setSelectedDoctor] = useState(0);
+  
   // Mock data for appointment counts by doctor
   const appointmentCountData = [
     { name: "Dr. Smith", appointments: 45, avgDuration: 20 },
@@ -30,6 +32,20 @@ export const DoctorPerformance: React.FC<DoctorPerformanceProps> = ({ dateRange 
     { doctor: "Dr. Garcia", punctuality: 4.5, knowledge: 4.7, communication: 4.8, friendliness: 4.9, overall: 4.8 },
   ];
 
+  // Transform the feedback data for the selected doctor into the format required by RadarChart
+  const transformFeedbackToRadarData = (doctorIndex: number) => {
+    const doctor = feedbackScoreData[doctorIndex];
+    if (!doctor) return [];
+    
+    return [
+      { name: "Punctuality", value: doctor.punctuality },
+      { name: "Knowledge", value: doctor.knowledge },
+      { name: "Communication", value: doctor.communication },
+      { name: "Friendliness", value: doctor.friendliness },
+      { name: "Overall", value: doctor.overall }
+    ];
+  };
+
   // Calculate doctor department distribution
   const departmentDistribution = mockDoctors.reduce((acc, doctor) => {
     const dept = doctor.department;
@@ -41,6 +57,8 @@ export const DoctorPerformance: React.FC<DoctorPerformanceProps> = ({ dateRange 
     name: department,
     value: count
   }));
+
+  const radarData = transformFeedbackToRadarData(selectedDoctor);
 
   return (
     <div className="space-y-6">
@@ -84,11 +102,17 @@ export const DoctorPerformance: React.FC<DoctorPerformanceProps> = ({ dateRange 
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
-              <RadarChart cx="50%" cy="50%" outerRadius="80%" data={feedbackScoreData[0]}>
+              <RadarChart cx="50%" cy="50%" outerRadius="80%" data={radarData}>
                 <PolarGrid />
                 <PolarAngleAxis dataKey="name" />
                 <PolarRadiusAxis angle={30} domain={[0, 5]} />
-                <Radar name="Dr. Smith" dataKey="value" stroke="#8884d8" fill="#8884d8" fillOpacity={0.6} />
+                <Radar 
+                  name={feedbackScoreData[selectedDoctor]?.doctor || "Dr. Smith"} 
+                  dataKey="value" 
+                  stroke="#8884d8" 
+                  fill="#8884d8" 
+                  fillOpacity={0.6} 
+                />
                 <Tooltip />
               </RadarChart>
             </ResponsiveContainer>
@@ -115,7 +139,11 @@ export const DoctorPerformance: React.FC<DoctorPerformanceProps> = ({ dateRange 
             </TableHeader>
             <TableBody>
               {mockDoctors.slice(0, 5).map((doctor, index) => (
-                <TableRow key={doctor.id}>
+                <TableRow 
+                  key={doctor.id} 
+                  className="cursor-pointer hover:bg-muted/80"
+                  onClick={() => setSelectedDoctor(index)}
+                >
                   <TableCell>
                     <div className="flex items-center gap-3">
                       <Avatar>
