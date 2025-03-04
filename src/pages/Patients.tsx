@@ -27,12 +27,13 @@ const Patients = () => {
   const [editPatient, setEditPatient] = useState<any>(null);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const { toast } = useToast();
+  const [refreshTrigger, setRefreshTrigger] = useState(0); // Added state to trigger re-fetching data
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(e.target.value);
   };
 
-  const handleAddPatientSuccess = () => {
+  const handleAddPatientSuccess = (patientId?: string) => {
     toast({
       title: "Success",
       description: editPatient 
@@ -40,11 +41,17 @@ const Patients = () => {
         : "The patient profile has been created.",
     });
     setEditPatient(null);
-    // Refresh patient list by forcing a re-render
-    setSearchQuery(prev => prev + " ");
-    setTimeout(() => {
-      setSearchQuery(prev => prev.trim());
-    }, 10);
+    
+    // Force a refresh of the patient list
+    setRefreshTrigger(prev => prev + 1);
+    
+    // If we have a patient ID from the newly added patient, select it and show details
+    if (patientId) {
+      setSelectedPatientId(patientId);
+      setTimeout(() => {
+        setActiveTab("details");
+      }, 300);
+    }
   };
 
   const handleEditPatient = (patient: any) => {
@@ -126,6 +133,8 @@ const Patients = () => {
               onSelectPatient={handleSelectPatient}
               selectedPatientId={selectedPatientId}
               onEditPatient={handleEditPatient}
+              statusFilter={statusFilter}
+              refreshTrigger={refreshTrigger}
             />
           </TabsContent>
           <TabsContent value="details" className="mt-6">
@@ -133,6 +142,7 @@ const Patients = () => {
               <PatientDetails 
                 patientId={selectedPatientId} 
                 onEditPatient={handleEditPatient}
+                refreshTrigger={refreshTrigger}
               />
             ) : (
               <div className="flex flex-col items-center justify-center p-12 text-center bg-muted/20 rounded-lg border border-dashed">

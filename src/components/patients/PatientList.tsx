@@ -45,13 +45,17 @@ interface PatientListProps {
   onSelectPatient: (id: string) => void;
   selectedPatientId: string | null;
   onEditPatient?: (patient: PatientData) => void;
+  statusFilter?: string;
+  refreshTrigger?: number;
 }
 
 export const PatientList: React.FC<PatientListProps> = ({ 
   searchQuery, 
   onSelectPatient,
   selectedPatientId,
-  onEditPatient
+  onEditPatient,
+  statusFilter = "all",
+  refreshTrigger = 0
 }) => {
   const [patients, setPatients] = useState<PatientData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -86,17 +90,22 @@ export const PatientList: React.FC<PatientListProps> = ({
     };
 
     fetchPatients();
-  }, [toast]);
+  }, [toast, refreshTrigger]); // Added refreshTrigger to the dependency array
 
-  // Filter patients based on search query
+  // Filter patients based on search query and status filter
   const filteredPatients = patients.filter(patient => {
     const searchLower = searchQuery.toLowerCase();
-    return (
+    const matchesSearch = (
       patient.name.toLowerCase().includes(searchLower) ||
       patient.email.toLowerCase().includes(searchLower) ||
       patient.phone.includes(searchQuery) ||
       patient.id.includes(searchQuery)
     );
+    
+    // Apply status filter if it's not set to "all"
+    const matchesStatus = statusFilter === "all" || patient.status === statusFilter;
+    
+    return matchesSearch && matchesStatus;
   });
 
   // Handle patient deletion

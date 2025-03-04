@@ -19,7 +19,7 @@ import { parseISO } from "date-fns";
 interface AddPatientDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSuccess: () => void;
+  onSuccess: (patientId?: string) => void;
   editPatient?: any;
 }
 
@@ -76,6 +76,7 @@ export const AddPatientDialog: React.FC<AddPatientDialogProps> = ({
       };
 
       let result;
+      let patientId;
       
       if (editPatient) {
         // Update existing patient
@@ -85,6 +86,7 @@ export const AddPatientDialog: React.FC<AddPatientDialogProps> = ({
           .eq('id', editPatient.id);
           
         if (result.error) throw result.error;
+        patientId = editPatient.id;
         
         toast({
           title: "Patient updated",
@@ -94,9 +96,13 @@ export const AddPatientDialog: React.FC<AddPatientDialogProps> = ({
         // Insert new patient
         result = await supabase
           .from('patients')
-          .insert([patientData]);
+          .insert([patientData])
+          .select();
           
         if (result.error) throw result.error;
+        
+        // Get the ID of the newly created patient
+        patientId = result.data && result.data[0]?.id;
         
         toast({
           title: "Patient added",
@@ -104,7 +110,7 @@ export const AddPatientDialog: React.FC<AddPatientDialogProps> = ({
         });
       }
       
-      onSuccess();
+      onSuccess(patientId);
       onOpenChange(false);
     } catch (error: any) {
       console.error('Error saving patient:', error);

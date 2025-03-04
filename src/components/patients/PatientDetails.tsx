@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { 
   Card, 
@@ -26,9 +25,14 @@ import { format, parseISO } from "date-fns";
 interface PatientDetailsProps {
   patientId: string;
   onEditPatient?: (patient: any) => void;
+  refreshTrigger?: number;
 }
 
-export const PatientDetails: React.FC<PatientDetailsProps> = ({ patientId, onEditPatient }) => {
+export const PatientDetails: React.FC<PatientDetailsProps> = ({ 
+  patientId, 
+  onEditPatient,
+  refreshTrigger = 0
+}) => {
   const [activeTab, setActiveTab] = useState("profile");
   const [patient, setPatient] = useState<any>(null);
   const [medicalRecords, setMedicalRecords] = useState<any[]>([]);
@@ -76,9 +80,8 @@ export const PatientDetails: React.FC<PatientDetailsProps> = ({ patientId, onEdi
     if (patientId) {
       fetchPatientData();
     }
-  }, [patientId, toast]);
+  }, [patientId, toast, refreshTrigger]);
 
-  // Format date for display
   const formatDate = (dateString: string) => {
     try {
       return format(parseISO(dateString), 'MMM dd, yyyy');
@@ -105,7 +108,6 @@ export const PatientDetails: React.FC<PatientDetailsProps> = ({ patientId, onEdi
     );
   }
 
-  // Calculate age based on date of birth
   const calculateAge = (dob: string) => {
     const birthDate = new Date(dob);
     const today = new Date();
