@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { 
   Card, 
@@ -7,20 +8,24 @@ import {
   CardTitle 
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { 
   Clipboard, 
   FileText, 
   Activity, 
   Calendar,
-  Edit,
-  User,
-  Loader2
+  User
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { format, parseISO } from "date-fns";
+
+// Import component parts
+import { PatientHeader } from "./details/PatientHeader";
+import { ProfileTab } from "./details/ProfileTab";
+import { MedicalRecordsTab } from "./details/MedicalRecordsTab";
+import { VisitsTab } from "./details/VisitsTab";
+import { AppointmentsTab } from "./details/AppointmentsTab";
+import { LoadingState } from "./details/LoadingState";
+import { ErrorState } from "./details/ErrorState";
 
 interface PatientDetailsProps {
   patientId: string;
@@ -82,66 +87,19 @@ export const PatientDetails: React.FC<PatientDetailsProps> = ({
     }
   }, [patientId, toast, refreshTrigger]);
 
-  const formatDate = (dateString: string) => {
-    try {
-      return format(parseISO(dateString), 'MMM dd, yyyy');
-    } catch (e) {
-      return dateString;
-    }
-  };
-
   if (loading) {
-    return (
-      <div className="flex justify-center items-center p-12">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
+    return <LoadingState />;
   }
 
   if (error || !patient) {
-    return (
-      <Card>
-        <CardContent className="pt-6">
-          <div className="text-center text-red-500">{error || 'Patient not found'}</div>
-        </CardContent>
-      </Card>
-    );
+    return <ErrorState message={error || 'Patient not found'} />;
   }
-
-  const calculateAge = (dob: string) => {
-    const birthDate = new Date(dob);
-    const today = new Date();
-    let age = today.getFullYear() - birthDate.getFullYear();
-    const m = today.getMonth() - birthDate.getMonth();
-    if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
-      age--;
-    }
-    return age;
-  };
-
-  const age = patient.date_of_birth ? calculateAge(patient.date_of_birth) : patient.age;
 
   return (
     <div className="space-y-6">
       <Card>
         <CardHeader className="pb-3">
-          <div className="flex justify-between items-start">
-            <div>
-              <CardTitle className="text-2xl">{patient.name}</CardTitle>
-              <CardDescription>
-                Patient ID: {patient.id.substring(0, 8)}... • {age} years old • {patient.gender}
-              </CardDescription>
-            </div>
-            <div className="flex gap-2">
-              <Badge variant={patient.status === "Active" ? "default" : "outline"}>
-                {patient.status}
-              </Badge>
-              <Button variant="outline" size="sm" onClick={() => onEditPatient && onEditPatient(patient)}>
-                <Edit size={16} className="mr-2" />
-                Edit Profile
-              </Button>
-            </div>
-          </div>
+          <PatientHeader patient={patient} onEditPatient={onEditPatient || (() => {})} />
         </CardHeader>
         <CardContent>
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -165,117 +123,19 @@ export const PatientDetails: React.FC<PatientDetailsProps> = ({
             </TabsList>
             
             <TabsContent value="profile" className="space-y-6">
-              <div className="grid md:grid-cols-2 gap-6">
-                <div className="space-y-4">
-                  <h3 className="font-semibold text-lg">Personal Information</h3>
-                  <div className="space-y-3">
-                    <div className="grid grid-cols-2">
-                      <div className="text-muted-foreground">Full Name</div>
-                      <div>{patient.name}</div>
-                    </div>
-                    <div className="grid grid-cols-2">
-                      <div className="text-muted-foreground">Date of Birth</div>
-                      <div>{formatDate(patient.date_of_birth)}</div>
-                    </div>
-                    <div className="grid grid-cols-2">
-                      <div className="text-muted-foreground">Gender</div>
-                      <div>{patient.gender}</div>
-                    </div>
-                    <div className="grid grid-cols-2">
-                      <div className="text-muted-foreground">Blood Type</div>
-                      <div>{patient.blood_type || 'Not specified'}</div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <h3 className="font-semibold text-lg">Contact Information</h3>
-                  <div className="space-y-3">
-                    <div className="grid grid-cols-2">
-                      <div className="text-muted-foreground">Email</div>
-                      <div>{patient.email}</div>
-                    </div>
-                    <div className="grid grid-cols-2">
-                      <div className="text-muted-foreground">Phone</div>
-                      <div>{patient.phone}</div>
-                    </div>
-                    <div className="grid grid-cols-2">
-                      <div className="text-muted-foreground">Address</div>
-                      <div>{patient.address || 'Not specified'}</div>
-                    </div>
-                    <div className="grid grid-cols-2">
-                      <div className="text-muted-foreground">Emergency Contact</div>
-                      <div>{patient.emergency_contact || 'Not specified'}</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <ProfileTab patient={patient} />
             </TabsContent>
             
             <TabsContent value="medical" className="space-y-6">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="font-semibold text-lg">Medical Records</h3>
-                <Button size="sm">
-                  <FileText size={16} className="mr-2" />
-                  Add Record
-                </Button>
-              </div>
-              
-              {medicalRecords.length > 0 ? (
-                <div className="space-y-4">
-                  {medicalRecords.map((record, index) => (
-                    <Card key={index}>
-                      <CardHeader className="pb-2">
-                        <div className="flex justify-between items-start">
-                          <CardTitle className="text-base">{record.type}</CardTitle>
-                          <Badge variant="outline">{formatDate(record.date)}</Badge>
-                        </div>
-                      </CardHeader>
-                      <CardContent>
-                        <p>{record.description}</p>
-                        {record.prescriptions && record.prescriptions.length > 0 && (
-                          <div className="mt-3">
-                            <div className="font-semibold text-sm mb-1">Prescriptions:</div>
-                            <ul className="list-disc pl-5">
-                              {record.prescriptions.map((med: string, i: number) => (
-                                <li key={i} className="text-sm">{med}</li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  No medical records found for this patient.
-                </div>
-              )}
+              <MedicalRecordsTab medicalRecords={medicalRecords} />
             </TabsContent>
             
             <TabsContent value="visits" className="space-y-6">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="font-semibold text-lg">Visit History</h3>
-              </div>
-              
-              <div className="text-center py-8 text-muted-foreground">
-                No past visits found for this patient.
-              </div>
+              <VisitsTab />
             </TabsContent>
             
             <TabsContent value="appointments" className="space-y-6">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="font-semibold text-lg">Appointments</h3>
-                <Button size="sm">
-                  <Calendar size={16} className="mr-2" />
-                  Schedule Appointment
-                </Button>
-              </div>
-              
-              <div className="text-center py-8 text-muted-foreground">
-                No upcoming appointments for this patient.
-              </div>
+              <AppointmentsTab />
             </TabsContent>
           </Tabs>
         </CardContent>
