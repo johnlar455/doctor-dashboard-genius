@@ -15,12 +15,98 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { Doctor, Patient, DoctorSchedule } from "@/types/supabase";
 
 const Reports = () => {
   const [dateRange, setDateRange] = useState<"week" | "month" | "quarter" | "year">("month");
+  const [activeTab, setActiveTab] = useState<"appointments" | "patients" | "doctors">("appointments");
 
-  const handleExport = (format: "pdf" | "csv") => {
-    toast.success(`Report exported as ${format.toUpperCase()} successfully`);
+  const handleExport = async (format: "pdf" | "csv") => {
+    try {
+      if (format === "csv") {
+        let data = [];
+        let filename = "";
+        
+        switch (activeTab) {
+          case "appointments":
+            // Get appointment data from Supabase
+            const { data: appointments, error: appointmentsError } = await supabase
+              .from("doctor_schedules")
+              .select(`
+                id, 
+                slot_date, 
+                start_time, 
+                end_time, 
+                status, 
+                doctor_id, 
+                patient_id
+              `)
+              .order("slot_date", { ascending: false });
+            
+            if (appointmentsError) throw appointmentsError;
+            data = appointments || [];
+            filename = "appointments_report.csv";
+            break;
+            
+          case "patients":
+            // Get patient data from Supabase
+            const { data: patients, error: patientsError } = await supabase
+              .from("patients")
+              .select("*");
+            
+            if (patientsError) throw patientsError;
+            data = patients || [];
+            filename = "patients_report.csv";
+            break;
+            
+          case "doctors":
+            // Get doctor data from Supabase
+            const { data: doctors, error: doctorsError } = await supabase
+              .from("doctors")
+              .select("*");
+            
+            if (doctorsError) throw doctorsError;
+            data = doctors || [];
+            filename = "doctors_report.csv";
+            break;
+        }
+        
+        if (data.length > 0) {
+          // Convert data to CSV
+          const header = Object.keys(data[0]).join(",");
+          const csvRows = data.map(row => 
+            Object.values(row).map(value => 
+              typeof value === 'object' ? JSON.stringify(value) : String(value)
+            ).join(",")
+          );
+          
+          const csvContent = [header, ...csvRows].join("\n");
+          
+          // Create and download CSV file
+          const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          link.setAttribute("href", url);
+          link.setAttribute("download", filename);
+          link.style.visibility = "hidden";
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          
+          toast.success(`Report exported as CSV successfully`);
+        } else {
+          toast.error("No data to export");
+        }
+      } else {
+        // PDF export would be more complex, typically using a library like jsPDF
+        // For now, let's just show a toast
+        toast.info("PDF export coming soon");
+      }
+    } catch (error) {
+      console.error("Export error:", error);
+      toast.error("Failed to export report");
+    }
   };
 
   return (
@@ -60,7 +146,7 @@ const Reports = () => {
           </div>
         </div>
         
-        <Tabs defaultValue="appointments" className="w-full">
+        <Tabs defaultValue="appointments" className="w-full" onValueChange={(value) => setActiveTab(value as any)}>
           <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3 md:w-[600px]">
             <TabsTrigger value="appointments">
               <FileText className="h-4 w-4 mr-2" />

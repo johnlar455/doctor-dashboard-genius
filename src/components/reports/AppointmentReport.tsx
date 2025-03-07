@@ -1,43 +1,130 @@
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, PieChart, Pie, Cell } from "recharts";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { mockAppointments } from "@/data/patients";
+import { supabase } from "@/integrations/supabase/client";
+import { DoctorSchedule } from "@/types/supabase";
+import { format, subMonths, subWeeks, subQuarters, subYears, parseISO, startOfWeek, endOfWeek, isWithinInterval, addDays } from "date-fns";
 
 interface AppointmentReportProps {
   dateRange: "week" | "month" | "quarter" | "year";
 }
 
 export const AppointmentReport: React.FC<AppointmentReportProps> = ({ dateRange }) => {
-  // Mock data for appointment status distribution
-  const statusData = [
-    { name: "Completed", value: 65, color: "#4ade80" },
-    { name: "Cancelled", value: 15, color: "#f87171" },
-    { name: "Pending", value: 10, color: "#facc15" },
-    { name: "Confirmed", value: 25, color: "#60a5fa" },
-  ];
+  const [loading, setLoading] = useState(true);
+  const [statusData, setStatusData] = useState<{ name: string; value: number; color: string }[]>([]);
+  const [trendData, setTrendData] = useState<{ name: string; completed: number; cancelled: number; total: number }[]>([]);
+  const [recentAppointments, setRecentAppointments] = useState<any[]>([]);
 
-  // Mock data for appointment trends
-  const trendData = [
-    { name: "Mon", completed: 12, cancelled: 2, total: 15 },
-    { name: "Tue", completed: 15, cancelled: 1, total: 18 },
-    { name: "Wed", completed: 18, cancelled: 3, total: 22 },
-    { name: "Thu", completed: 14, cancelled: 4, total: 19 },
-    { name: "Fri", completed: 20, cancelled: 2, total: 25 },
-    { name: "Sat", completed: 10, cancelled: 1, total: 12 },
-    { name: "Sun", completed: 5, cancelled: 0, total: 5 },
-  ];
+  useEffect(() => {
+    fetchAppointmentData();
+  }, [dateRange]);
 
-  // Format appointment data for table
-  const recentAppointments = mockAppointments.slice(0, 5).map(appointment => ({
-    date: appointment.date,
-    time: appointment.time,
-    patientId: appointment.patientId,
-    doctorName: appointment.doctorName,
-    type: appointment.type,
-    status: appointment.status
-  }));
+  const fetchAppointmentData = async () => {
+    setLoading(true);
+    try {
+      // Calculate date range
+      const currentDate = new Date();
+      let startDate;
+      
+      switch (dateRange) {
+        case "week":
+          startDate = subWeeks(currentDate, 1);
+          break;
+        case "month":
+          startDate = subMonths(currentDate, 1);
+          break;
+        case "quarter":
+          startDate = subQuarters(currentDate, 1);
+          break;
+        case "year":
+          startDate = subYears(currentDate, 1);
+          break;
+        default:
+          startDate = subMonths(currentDate, 1);
+      }
+      
+      // Fetch appointment data from Supabase
+      const { data: appointments, error } = await supabase
+        .from("doctor_schedules")
+        .select(`
+          *,
+          doctors(name),
+          patients(name)
+        `)
+        .gte("slot_date", startDate.toISOString())
+        .order("slot_date", { ascending: false });
+      
+      if (error) throw error;
+      
+      if (appointments && appointments.length > 0) {
+        // Process data for status distribution
+        const statusCounts: Record<string, number> = {};
+        appointments.forEach((appointment: any) => {
+          const status = appointment.status || "pending";
+          statusCounts[status] = (statusCounts[status] || 0) + 1;
+        });
+        
+        const statusColors: Record<string, string> = {
+          completed: "#4ade80",
+          booked: "#60a5fa",
+          available: "#facc15",
+          unavailable: "#f87171",
+        };
+        
+        const processedStatusData = Object.entries(statusCounts).map(([status, count]) => ({
+          name: status.charAt(0).toUpperCase() + status.slice(1),
+          value: count,
+          color: statusColors[status] || "#9ca3af"
+        }));
+        
+        setStatusData(processedStatusData);
+        
+        // Process data for weekly trends
+        // Get the start and end of the current week
+        const weekStart = startOfWeek(currentDate);
+        const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+        
+        const weeklyData = weekDays.map((day) => {
+          const dayName = format(day, "EEE");
+          const dayAppointments = appointments.filter((appointment: any) => {
+            const appointmentDate = parseISO(appointment.slot_date);
+            return format(appointmentDate, "yyyy-MM-dd") === format(day, "yyyy-MM-dd");
+          });
+          
+          const completed = dayAppointments.filter((a: any) => a.status === "completed").length;
+          const cancelled = dayAppointments.filter((a: any) => a.status === "unavailable").length;
+          
+          return {
+            name: dayName,
+            completed,
+            cancelled,
+            total: dayAppointments.length
+          };
+        });
+        
+        setTrendData(weeklyData);
+        
+        // Process data for recent appointments table
+        const recentAppointmentsData = appointments.slice(0, 5).map((appointment: any) => ({
+          date: format(parseISO(appointment.slot_date), "yyyy-MM-dd"),
+          time: `${appointment.start_time} - ${appointment.end_time}`,
+          patientId: appointment.patient_id || "N/A",
+          patientName: appointment.patients?.name || "N/A",
+          doctorName: appointment.doctors?.name || "N/A",
+          type: appointment.status === "booked" ? "Scheduled" : appointment.status.charAt(0).toUpperCase() + appointment.status.slice(1),
+          status: appointment.status
+        }));
+        
+        setRecentAppointments(recentAppointmentsData);
+      }
+    } catch (error) {
+      console.error("Error fetching appointment data:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, index }: any) => {
     const RADIAN = Math.PI / 180;
@@ -73,26 +160,32 @@ export const AppointmentReport: React.FC<AppointmentReportProps> = ({ dateRange 
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={statusData}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={renderCustomizedLabel}
-                  outerRadius={100}
-                  fill="#8884d8"
-                  dataKey="value"
-                >
-                  {statusData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip />
-                <Legend />
-              </PieChart>
-            </ResponsiveContainer>
+            {statusData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={statusData}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={renderCustomizedLabel}
+                    outerRadius={100}
+                    fill="#8884d8"
+                    dataKey="value"
+                  >
+                    {statusData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-[300px]">
+                <p className="text-muted-foreground">No appointment data available</p>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -104,25 +197,31 @@ export const AppointmentReport: React.FC<AppointmentReportProps> = ({ dateRange 
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart
-                data={trendData}
-                margin={{
-                  top: 20,
-                  right: 30,
-                  left: 0,
-                  bottom: 5,
-                }}
-              >
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Bar dataKey="completed" fill="#4ade80" name="Completed" />
-                <Bar dataKey="cancelled" fill="#f87171" name="Cancelled" />
-              </BarChart>
-            </ResponsiveContainer>
+            {trendData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart
+                  data={trendData}
+                  margin={{
+                    top: 20,
+                    right: 30,
+                    left: 0,
+                    bottom: 5,
+                  }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" />
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  <Bar dataKey="completed" fill="#4ade80" name="Completed" />
+                  <Bar dataKey="cancelled" fill="#f87171" name="Cancelled" />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-[300px]">
+                <p className="text-muted-foreground">No trend data available</p>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -135,39 +234,45 @@ export const AppointmentReport: React.FC<AppointmentReportProps> = ({ dateRange 
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Date</TableHead>
-                <TableHead>Time</TableHead>
-                <TableHead>Patient ID</TableHead>
-                <TableHead>Doctor</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Status</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {recentAppointments.map((appointment, index) => (
-                <TableRow key={index}>
-                  <TableCell>{appointment.date}</TableCell>
-                  <TableCell>{appointment.time}</TableCell>
-                  <TableCell>{appointment.patientId}</TableCell>
-                  <TableCell>{appointment.doctorName}</TableCell>
-                  <TableCell>{appointment.type}</TableCell>
-                  <TableCell>
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-                      ${appointment.status === 'completed' ? 'bg-green-100 text-green-800' : 
-                        appointment.status === 'cancelled' ? 'bg-red-100 text-red-800' :
-                        appointment.status === 'confirmed' ? 'bg-blue-100 text-blue-800' :
-                        'bg-yellow-100 text-yellow-800'
-                      }`}>
-                      {appointment.status.charAt(0).toUpperCase() + appointment.status.slice(1)}
-                    </span>
-                  </TableCell>
+          {recentAppointments.length > 0 ? (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Time</TableHead>
+                  <TableHead>Patient</TableHead>
+                  <TableHead>Doctor</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Status</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {recentAppointments.map((appointment, index) => (
+                  <TableRow key={index}>
+                    <TableCell>{appointment.date}</TableCell>
+                    <TableCell>{appointment.time}</TableCell>
+                    <TableCell>{appointment.patientName}</TableCell>
+                    <TableCell>{appointment.doctorName}</TableCell>
+                    <TableCell>{appointment.type}</TableCell>
+                    <TableCell>
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                        ${appointment.status === 'completed' ? 'bg-green-100 text-green-800' : 
+                          appointment.status === 'unavailable' ? 'bg-red-100 text-red-800' :
+                          appointment.status === 'booked' ? 'bg-blue-100 text-blue-800' :
+                          'bg-yellow-100 text-yellow-800'
+                        }`}>
+                        {appointment.status.charAt(0).toUpperCase() + appointment.status.slice(1)}
+                      </span>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          ) : (
+            <div className="flex items-center justify-center h-[200px]">
+              <p className="text-muted-foreground">No recent appointments found</p>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
