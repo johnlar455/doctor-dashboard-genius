@@ -58,6 +58,14 @@ export const AppointmentsTab: React.FC = () => {
           
           const appointmentDate = new Date(appointment.slot_date);
           
+          // Ensure the status matches the allowed types
+          let status: "upcoming" | "completed" | "cancelled";
+          if (appointment.status === 'booked') {
+            status = appointmentDate > new Date() ? 'upcoming' : 'completed';
+          } else {
+            status = 'cancelled';
+          }
+          
           return {
             id: appointment.id,
             date: format(appointmentDate, 'yyyy-MM-dd'),
@@ -66,9 +74,7 @@ export const AppointmentsTab: React.FC = () => {
             doctorInitials,
             doctorAvatar: doctor.avatar,
             type: "Consultation", // Default type
-            status: appointment.status === 'booked' 
-              ? (appointmentDate > new Date() ? 'upcoming' : 'completed') 
-              : 'cancelled'
+            status: status
           };
         });
 

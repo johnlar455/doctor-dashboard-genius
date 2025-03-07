@@ -10,7 +10,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { format } from "date-fns";
 import { CalendarIcon, Clock, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Appointment } from "@/pages/Appointments";
+import { Appointment } from "@/types/supabase";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Patient, Doctor } from "@/types/supabase";

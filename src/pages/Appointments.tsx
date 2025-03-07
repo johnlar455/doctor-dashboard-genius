@@ -9,7 +9,7 @@ import { CalendarDays, List } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { Doctor, Patient } from "@/types/supabase";
+import { Doctor, Patient, Appointment } from "@/types/supabase";
 
 // Types
 export type AppointmentStatus = "upcoming" | "completed" | "cancelled";
@@ -80,6 +80,15 @@ const Appointments = () => {
             .map(part => part[0])
             .join('')
             .toUpperCase() : '';
+          
+          // Ensure the status is one of the allowed AppointmentStatus values
+          let status: AppointmentStatus = 'upcoming';
+          if (schedule.status === 'booked') {
+            const appointmentDate = new Date(schedule.slot_date);
+            status = appointmentDate > new Date() ? 'upcoming' : 'completed';
+          } else if (schedule.status === 'unavailable') {
+            status = 'cancelled';
+          }
 
           return {
             id: schedule.id,
@@ -92,8 +101,7 @@ const Appointments = () => {
             doctorInitials: doctorInitials,
             time: schedule.start_time,
             date: new Date(schedule.slot_date).toISOString().split('T')[0],
-            status: schedule.status === 'booked' ? 'upcoming' : 
-                   schedule.status === 'available' ? 'upcoming' : 'cancelled',
+            status: status,
             type: "Consultation", // Default type if not specified
             notes: ""
           };
@@ -173,6 +181,9 @@ const Appointments = () => {
       setAppointments([...appointments, newAppointment]);
       setIsFormOpen(false);
       toast.success("Appointment scheduled successfully!");
+      
+      // Refresh the appointments list to ensure we have the latest data
+      fetchAppointments();
     } catch (error) {
       console.error('Error creating appointment:', error);
       toast.error('Failed to create appointment. Please try again.');
