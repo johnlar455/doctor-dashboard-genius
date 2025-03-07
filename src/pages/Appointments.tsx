@@ -9,27 +9,10 @@ import { CalendarDays, List } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { Doctor, Patient, Appointment } from "@/types/supabase";
+import { Doctor, Patient, Appointment, AppointmentData } from "@/types/supabase";
 
 // Types
 export type AppointmentStatus = "upcoming" | "completed" | "cancelled";
-
-export interface Appointment {
-  id: string;
-  patientName: string;
-  patientId: string;
-  patientAvatar?: string;
-  patientInitials: string;
-  doctorName: string;
-  doctorId: string;
-  doctorAvatar?: string;
-  doctorInitials: string;
-  time: string;
-  date: string;
-  status: AppointmentStatus;
-  type: string;
-  notes?: string;
-}
 
 const Appointments = () => {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -46,27 +29,31 @@ const Appointments = () => {
   const fetchAppointments = async () => {
     try {
       setIsLoading(true);
-      const { data: schedules, error } = await supabase
-        .from('doctor_schedules')
+      const { data, error } = await supabase
+        .from('appointments')
         .select(`
           id, 
-          slot_date, 
+          appointment_date, 
           start_time, 
           end_time, 
+          type,
           status,
+          notes,
+          doctor_id,
+          patient_id,
           doctors(id, name, avatar),
           patients(id, name)
         `)
-        .order('slot_date', { ascending: true });
+        .order('appointment_date', { ascending: true });
 
       if (error) throw error;
 
       // Transform the data to match our Appointment interface
-      const mappedAppointments = schedules
-        .filter(schedule => schedule.patients !== null)
-        .map(schedule => {
-          const doctor = schedule.doctors;
-          const patient = schedule.patients;
+      const mappedAppointments = data
+        .filter(appointment => appointment.patients !== null)
+        .map(appointment => {
+          const doctor = appointment.doctors;
+          const patient = appointment.patients;
           
           // Extract initials for doctor and patient
           const doctorInitials = doctor.name
@@ -80,30 +67,21 @@ const Appointments = () => {
             .map(part => part[0])
             .join('')
             .toUpperCase() : '';
-          
-          // Ensure the status is one of the allowed AppointmentStatus values
-          let status: AppointmentStatus = 'upcoming';
-          if (schedule.status === 'booked') {
-            const appointmentDate = new Date(schedule.slot_date);
-            status = appointmentDate > new Date() ? 'upcoming' : 'completed';
-          } else if (schedule.status === 'unavailable') {
-            status = 'cancelled';
-          }
 
           return {
-            id: schedule.id,
+            id: appointment.id,
             patientName: patient ? patient.name : '',
-            patientId: patient ? patient.id : '',
+            patientId: appointment.patient_id,
             patientInitials: patientInitials,
             doctorName: doctor.name,
-            doctorId: doctor.id,
+            doctorId: appointment.doctor_id,
             doctorAvatar: doctor.avatar,
             doctorInitials: doctorInitials,
-            time: schedule.start_time,
-            date: new Date(schedule.slot_date).toISOString().split('T')[0],
-            status: status,
-            type: "Consultation", // Default type if not specified
-            notes: ""
+            time: appointment.start_time,
+            date: appointment.appointment_date,
+            status: appointment.status as AppointmentStatus,
+            type: appointment.type,
+            notes: appointment.notes || ""
           };
         });
 
@@ -119,16 +97,18 @@ const Appointments = () => {
   // Handle creating a new appointment
   const handleCreateAppointment = async (appointmentData: Omit<Appointment, "id" | "patientInitials" | "doctorInitials">) => {
     try {
-      // Create a new appointment in the doctor_schedules table
+      // Create a new appointment in the appointments table
       const { data, error } = await supabase
-        .from('doctor_schedules')
+        .from('appointments')
         .insert({
           doctor_id: appointmentData.doctorId,
           patient_id: appointmentData.patientId,
-          slot_date: appointmentData.date,
+          appointment_date: appointmentData.date,
           start_time: appointmentData.time,
           end_time: calculateEndTime(appointmentData.time),
-          status: 'booked'
+          type: appointmentData.type,
+          status: 'upcoming',
+          notes: appointmentData.notes
         })
         .select()
         .single();
@@ -206,17 +186,18 @@ const Appointments = () => {
   // Handle updating an appointment
   const handleUpdateAppointment = async (updatedAppointment: Appointment) => {
     try {
-      // Update the appointment in the doctor_schedules table
+      // Update the appointment in the appointments table
       const { error } = await supabase
-        .from('doctor_schedules')
+        .from('appointments')
         .update({
           doctor_id: updatedAppointment.doctorId,
           patient_id: updatedAppointment.patientId,
-          slot_date: updatedAppointment.date,
+          appointment_date: updatedAppointment.date,
           start_time: updatedAppointment.time,
           end_time: calculateEndTime(updatedAppointment.time),
-          status: updatedAppointment.status === 'upcoming' ? 'booked' : 
-                 updatedAppointment.status === 'cancelled' ? 'unavailable' : 'booked'
+          type: updatedAppointment.type,
+          status: updatedAppointment.status,
+          notes: updatedAppointment.notes
         })
         .eq('id', updatedAppointment.id);
 
@@ -237,10 +218,10 @@ const Appointments = () => {
   // Handle cancelling an appointment
   const handleCancelAppointment = async (id: string) => {
     try {
-      // Update the appointment status in the doctor_schedules table
+      // Update the appointment status in the appointments table
       const { error } = await supabase
-        .from('doctor_schedules')
-        .update({ status: 'unavailable' })
+        .from('appointments')
+        .update({ status: 'cancelled' })
         .eq('id', id);
 
       if (error) throw error;

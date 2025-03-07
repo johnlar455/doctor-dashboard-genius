@@ -32,18 +32,21 @@ export const AppointmentsTab: React.FC = () => {
     const fetchPatientAppointments = async () => {
       try {
         setIsLoading(true);
+        
+        // Fetch from the new appointments table
         const { data, error } = await supabase
-          .from('doctor_schedules')
+          .from('appointments')
           .select(`
-            id, 
-            slot_date, 
-            start_time, 
-            end_time, 
+            id,
+            appointment_date,
+            start_time,
+            end_time,
+            type,
             status,
             doctors(id, name, avatar)
           `)
           .eq('patient_id', id)
-          .order('slot_date', { ascending: false });
+          .order('appointment_date', { ascending: false });
 
         if (error) throw error;
 
@@ -56,25 +59,15 @@ export const AppointmentsTab: React.FC = () => {
             .join('')
             .toUpperCase();
           
-          const appointmentDate = new Date(appointment.slot_date);
-          
-          // Ensure the status matches the allowed types
-          let status: "upcoming" | "completed" | "cancelled";
-          if (appointment.status === 'booked') {
-            status = appointmentDate > new Date() ? 'upcoming' : 'completed';
-          } else {
-            status = 'cancelled';
-          }
-          
           return {
             id: appointment.id,
-            date: format(appointmentDate, 'yyyy-MM-dd'),
+            date: appointment.appointment_date,
             time: appointment.start_time,
             doctorName: doctor.name,
             doctorInitials,
             doctorAvatar: doctor.avatar,
-            type: "Consultation", // Default type
-            status: status
+            type: appointment.type,
+            status: appointment.status as "upcoming" | "completed" | "cancelled"
           };
         });
 

@@ -82,3 +82,16 @@ export interface Appointment {
   type: string;
   notes?: string;
 }
+
+export interface AppointmentData {
+  id: string;
+  patient_id: string;
+  doctor_id: string;
+  appointment_date: string;
+  start_time: string;
+  end_time: string;
+  type: string;
+  status: "upcoming" | "completed" | "cancelled";
+  notes?: string;
+  created_at: string;
+}
