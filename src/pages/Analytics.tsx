@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Calendar, Users, Activity, CreditCard, Download, Filter, RefreshCw } from "lucide-react";
+import { Calendar, Users, Activity, CreditCard, Download, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { 
   Select,
@@ -16,9 +16,10 @@ import { PatientDemographics } from "@/components/analytics/PatientDemographics"
 import { DoctorPerformanceAnalytics } from "@/components/analytics/DoctorPerformanceAnalytics";
 import { FinancialInsights } from "@/components/analytics/FinancialInsights";
 import { toast } from "sonner";
+import { DateRange } from "@/components/analytics/utils/dateUtils";
 
 const Analytics = () => {
-  const [dateRange, setDateRange] = useState<"week" | "month" | "quarter" | "year">("month");
+  const [dateRange, setDateRange] = useState<DateRange>("month");
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const handleRefresh = () => {
@@ -48,7 +49,7 @@ const Analytics = () => {
           <div className="flex flex-wrap items-center gap-2">
             <Select
               defaultValue={dateRange}
-              onValueChange={(value) => setDateRange(value as "week" | "month" | "quarter" | "year")}
+              onValueChange={(value) => setDateRange(value as DateRange)}
             >
               <SelectTrigger className="w-[150px]">
                 <SelectValue placeholder="Select range" />
