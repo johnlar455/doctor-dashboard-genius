@@ -13,7 +13,7 @@ import {
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import { CheckCircle2, Clock, CalendarDays, MoreVertical, User, Search, X, Calendar } from "lucide-react";
+import { CheckCircle2, Clock, CalendarDays, MoreVertical, User, Search, X, Calendar, Loader2 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
@@ -22,12 +22,14 @@ interface AppointmentListProps {
   appointments: Appointment[];
   onSelectAppointment: (appointment: Appointment) => void;
   onCancelAppointment: (id: string) => void;
+  isLoading?: boolean;
 }
 
 export const AppointmentList: React.FC<AppointmentListProps> = ({
   appointments,
   onSelectAppointment,
   onCancelAppointment,
+  isLoading = false,
 }) => {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -120,85 +122,92 @@ export const AppointmentList: React.FC<AppointmentListProps> = ({
           </div>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {filteredAppointments.length === 0 ? (
-              <div className="text-center py-10">
-                <Calendar className="mx-auto h-12 w-12 text-muted-foreground opacity-50" />
-                <h3 className="mt-4 text-lg font-semibold">No appointments found</h3>
-                <p className="mt-1 text-muted-foreground">
-                  {search || statusFilter !== "all"
-                    ? "Try adjusting your filters"
-                    : "Create your first appointment to get started"}
-                </p>
-              </div>
-            ) : (
-              filteredAppointments.map((appointment) => (
-                <div
-                  key={appointment.id}
-                  className={cn(
-                    "flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-lg border transition-colors",
-                    appointment.status === "upcoming"
-                      ? "border-blue-100 bg-blue-50/50"
-                      : appointment.status === "completed"
-                      ? "border-green-100 bg-green-50/50"
-                      : "border-red-100 bg-red-50/50"
-                  )}
-                >
-                  <div className="flex items-center gap-4">
-                    <Avatar className="h-12 w-12 border border-border">
-                      <AvatarImage src={appointment.patientAvatar} alt={appointment.patientName} />
-                      <AvatarFallback className="bg-primary/10 text-primary">
-                        {appointment.patientInitials}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <h4 className="font-semibold">{appointment.patientName}</h4>
-                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1">
-                        <span className="text-sm text-muted-foreground flex items-center">
-                          <User className="mr-1 h-3.5 w-3.5" />
-                          {appointment.doctorName}
-                        </span>
-                        <span className="text-sm text-muted-foreground flex items-center">
-                          <CalendarDays className="mr-1 h-3.5 w-3.5" />
-                          {appointment.date}
-                        </span>
-                        <span className="text-sm text-muted-foreground flex items-center">
-                          <Clock className="mr-1 h-3.5 w-3.5" />
-                          {appointment.time}
-                        </span>
+          {isLoading ? (
+            <div className="flex justify-center items-center py-10">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <span className="ml-2">Loading appointments...</span>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {filteredAppointments.length === 0 ? (
+                <div className="text-center py-10">
+                  <Calendar className="mx-auto h-12 w-12 text-muted-foreground opacity-50" />
+                  <h3 className="mt-4 text-lg font-semibold">No appointments found</h3>
+                  <p className="mt-1 text-muted-foreground">
+                    {search || statusFilter !== "all"
+                      ? "Try adjusting your filters"
+                      : "Create your first appointment to get started"}
+                  </p>
+                </div>
+              ) : (
+                filteredAppointments.map((appointment) => (
+                  <div
+                    key={appointment.id}
+                    className={cn(
+                      "flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-lg border transition-colors",
+                      appointment.status === "upcoming"
+                        ? "border-blue-100 bg-blue-50/50"
+                        : appointment.status === "completed"
+                        ? "border-green-100 bg-green-50/50"
+                        : "border-red-100 bg-red-50/50"
+                    )}
+                  >
+                    <div className="flex items-center gap-4">
+                      <Avatar className="h-12 w-12 border border-border">
+                        <AvatarImage src={appointment.patientAvatar} alt={appointment.patientName} />
+                        <AvatarFallback className="bg-primary/10 text-primary">
+                          {appointment.patientInitials}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <h4 className="font-semibold">{appointment.patientName}</h4>
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1">
+                          <span className="text-sm text-muted-foreground flex items-center">
+                            <User className="mr-1 h-3.5 w-3.5" />
+                            {appointment.doctorName}
+                          </span>
+                          <span className="text-sm text-muted-foreground flex items-center">
+                            <CalendarDays className="mr-1 h-3.5 w-3.5" />
+                            {appointment.date}
+                          </span>
+                          <span className="text-sm text-muted-foreground flex items-center">
+                            <Clock className="mr-1 h-3.5 w-3.5" />
+                            {appointment.time}
+                          </span>
+                        </div>
                       </div>
                     </div>
+                    <div className="flex items-center justify-between sm:justify-end gap-3 mt-3 sm:mt-0">
+                      {getStatusBadge(appointment.status)}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => onSelectAppointment(appointment)}>
+                            View & Edit
+                          </DropdownMenuItem>
+                          {appointment.status === "upcoming" && (
+                            <>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem 
+                                className="text-red-600"
+                                onClick={() => handleCancelClick(appointment.id)}
+                              >
+                                Cancel Appointment
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   </div>
-                  <div className="flex items-center justify-between sm:justify-end gap-3 mt-3 sm:mt-0">
-                    {getStatusBadge(appointment.status)}
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <MoreVertical className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => onSelectAppointment(appointment)}>
-                          View & Edit
-                        </DropdownMenuItem>
-                        {appointment.status === "upcoming" && (
-                          <>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem 
-                              className="text-red-600"
-                              onClick={() => handleCancelClick(appointment.id)}
-                            >
-                              Cancel Appointment
-                            </DropdownMenuItem>
-                          </>
-                        )}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
+                ))
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
 

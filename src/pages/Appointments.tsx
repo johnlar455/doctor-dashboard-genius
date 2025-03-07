@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { AppointmentForm } from "@/components/appointments/AppointmentForm";
 import { AppointmentCalendar } from "@/components/appointments/AppointmentCalendar";
@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { CalendarDays, List } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { Doctor, Patient } from "@/types/supabase";
 
 // Types
 export type AppointmentStatus = "upcoming" | "completed" | "cancelled";
@@ -29,110 +31,220 @@ export interface Appointment {
   notes?: string;
 }
 
-// Mock data for initial display
-const mockAppointments: Appointment[] = [
-  {
-    id: "app-1",
-    patientName: "Sarah Johnson",
-    patientId: "p-001",
-    patientInitials: "SJ",
-    doctorName: "Dr. Michael Chen",
-    doctorId: "d-001",
-    doctorInitials: "MC",
-    time: "09:00 AM",
-    date: "2024-03-05",
-    status: "upcoming",
-    type: "General Checkup"
-  },
-  {
-    id: "app-2",
-    patientName: "Robert Williams",
-    patientId: "p-002",
-    patientInitials: "RW",
-    doctorName: "Dr. Lisa Wong",
-    doctorId: "d-002",
-    doctorInitials: "LW",
-    time: "11:30 AM",
-    date: "2024-03-05",
-    status: "upcoming",
-    type: "Pediatric Consultation"
-  },
-  {
-    id: "app-3",
-    patientName: "Emily Davis",
-    patientId: "p-003",
-    patientInitials: "ED",
-    doctorName: "Dr. James Wilson",
-    doctorId: "d-003",
-    doctorInitials: "JW",
-    time: "02:15 PM",
-    date: "2024-03-06",
-    status: "upcoming",
-    type: "Cardiology Follow-up"
-  },
-  {
-    id: "app-4",
-    patientName: "David Miller",
-    patientId: "p-004",
-    patientInitials: "DM",
-    doctorName: "Dr. Michael Chen",
-    doctorId: "d-001",
-    doctorInitials: "MC",
-    time: "10:00 AM",
-    date: "2024-03-04",
-    status: "completed",
-    type: "Annual Physical"
-  },
-  {
-    id: "app-5",
-    patientName: "Jennifer Lopez",
-    patientId: "p-005",
-    patientInitials: "JL",
-    doctorName: "Dr. Lisa Wong",
-    doctorId: "d-002",
-    doctorInitials: "LW",
-    time: "03:30 PM",
-    date: "2024-03-03",
-    status: "cancelled",
-    type: "Dermatology Consultation"
-  }
-];
-
 const Appointments = () => {
-  const [appointments, setAppointments] = useState<Appointment[]>(mockAppointments);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Fetch appointments from Supabase
+  useEffect(() => {
+    fetchAppointments();
+  }, []);
+
+  const fetchAppointments = async () => {
+    try {
+      setIsLoading(true);
+      const { data: schedules, error } = await supabase
+        .from('doctor_schedules')
+        .select(`
+          id, 
+          slot_date, 
+          start_time, 
+          end_time, 
+          status,
+          doctors(id, name, avatar),
+          patients(id, name)
+        `)
+        .order('slot_date', { ascending: true });
+
+      if (error) throw error;
+
+      // Transform the data to match our Appointment interface
+      const mappedAppointments = schedules
+        .filter(schedule => schedule.patients !== null)
+        .map(schedule => {
+          const doctor = schedule.doctors;
+          const patient = schedule.patients;
+          
+          // Extract initials for doctor and patient
+          const doctorInitials = doctor.name
+            .split(' ')
+            .map(part => part[0])
+            .join('')
+            .toUpperCase();
+            
+          const patientInitials = patient ? patient.name
+            .split(' ')
+            .map(part => part[0])
+            .join('')
+            .toUpperCase() : '';
+
+          return {
+            id: schedule.id,
+            patientName: patient ? patient.name : '',
+            patientId: patient ? patient.id : '',
+            patientInitials: patientInitials,
+            doctorName: doctor.name,
+            doctorId: doctor.id,
+            doctorAvatar: doctor.avatar,
+            doctorInitials: doctorInitials,
+            time: schedule.start_time,
+            date: new Date(schedule.slot_date).toISOString().split('T')[0],
+            status: schedule.status === 'booked' ? 'upcoming' : 
+                   schedule.status === 'available' ? 'upcoming' : 'cancelled',
+            type: "Consultation", // Default type if not specified
+            notes: ""
+          };
+        });
+
+      setAppointments(mappedAppointments);
+    } catch (error) {
+      console.error('Error fetching appointments:', error);
+      toast.error('Failed to load appointments. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Handle creating a new appointment
-  const handleCreateAppointment = (appointment: Omit<Appointment, "id">) => {
-    const newAppointment = {
-      ...appointment,
-      id: `app-${appointments.length + 1}`,
-    };
+  const handleCreateAppointment = async (appointmentData: Omit<Appointment, "id" | "patientInitials" | "doctorInitials">) => {
+    try {
+      // Create a new appointment in the doctor_schedules table
+      const { data, error } = await supabase
+        .from('doctor_schedules')
+        .insert({
+          doctor_id: appointmentData.doctorId,
+          patient_id: appointmentData.patientId,
+          slot_date: appointmentData.date,
+          start_time: appointmentData.time,
+          end_time: calculateEndTime(appointmentData.time),
+          status: 'booked'
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Get doctor and patient details
+      const { data: doctor } = await supabase
+        .from('doctors')
+        .select('name, avatar')
+        .eq('id', appointmentData.doctorId)
+        .single();
+
+      const { data: patient } = await supabase
+        .from('patients')
+        .select('name')
+        .eq('id', appointmentData.patientId)
+        .single();
+
+      // Calculate initials
+      const doctorInitials = doctor.name
+        .split(' ')
+        .map(part => part[0])
+        .join('')
+        .toUpperCase();
+        
+      const patientInitials = patient.name
+        .split(' ')
+        .map(part => part[0])
+        .join('')
+        .toUpperCase();
+
+      // Add the new appointment to the state
+      const newAppointment: Appointment = {
+        id: data.id,
+        patientName: patient.name,
+        patientId: appointmentData.patientId,
+        patientInitials: patientInitials,
+        doctorName: doctor.name,
+        doctorId: appointmentData.doctorId,
+        doctorAvatar: doctor.avatar,
+        doctorInitials: doctorInitials,
+        time: appointmentData.time,
+        date: appointmentData.date,
+        status: 'upcoming',
+        type: appointmentData.type,
+        notes: appointmentData.notes
+      };
+
+      setAppointments([...appointments, newAppointment]);
+      setIsFormOpen(false);
+      toast.success("Appointment scheduled successfully!");
+    } catch (error) {
+      console.error('Error creating appointment:', error);
+      toast.error('Failed to create appointment. Please try again.');
+    }
+  };
+
+  // Calculate end time (1 hour after start time)
+  const calculateEndTime = (startTime: string) => {
+    const [hours, minutes] = startTime.split(':');
+    const hourValue = parseInt(hours);
+    const isPM = startTime.toLowerCase().includes('pm');
     
-    setAppointments([...appointments, newAppointment]);
-    setIsFormOpen(false);
-    toast.success("Appointment scheduled successfully!");
+    let hour24 = isPM && hourValue !== 12 ? hourValue + 12 : hourValue;
+    let nextHour = (hour24 + 1) % 24;
+    
+    // Format back to 12-hour format
+    return `${nextHour === 0 ? 12 : nextHour > 12 ? nextHour - 12 : nextHour}:${minutes} ${nextHour >= 12 ? 'PM' : 'AM'}`;
   };
 
   // Handle updating an appointment
-  const handleUpdateAppointment = (updatedAppointment: Appointment) => {
-    setAppointments(
-      appointments.map((app) => (app.id === updatedAppointment.id ? updatedAppointment : app))
-    );
-    setSelectedAppointment(null);
-    toast.success("Appointment updated successfully!");
+  const handleUpdateAppointment = async (updatedAppointment: Appointment) => {
+    try {
+      // Update the appointment in the doctor_schedules table
+      const { error } = await supabase
+        .from('doctor_schedules')
+        .update({
+          doctor_id: updatedAppointment.doctorId,
+          patient_id: updatedAppointment.patientId,
+          slot_date: updatedAppointment.date,
+          start_time: updatedAppointment.time,
+          end_time: calculateEndTime(updatedAppointment.time),
+          status: updatedAppointment.status === 'upcoming' ? 'booked' : 
+                 updatedAppointment.status === 'cancelled' ? 'unavailable' : 'booked'
+        })
+        .eq('id', updatedAppointment.id);
+
+      if (error) throw error;
+
+      // Update the appointment in the state
+      setAppointments(
+        appointments.map((app) => (app.id === updatedAppointment.id ? updatedAppointment : app))
+      );
+      setSelectedAppointment(null);
+      toast.success("Appointment updated successfully!");
+    } catch (error) {
+      console.error('Error updating appointment:', error);
+      toast.error('Failed to update appointment. Please try again.');
+    }
   };
 
   // Handle cancelling an appointment
-  const handleCancelAppointment = (id: string) => {
-    setAppointments(
-      appointments.map((app) =>
-        app.id === id ? { ...app, status: "cancelled" as AppointmentStatus } : app
-      )
-    );
-    toast.success("Appointment cancelled successfully!");
+  const handleCancelAppointment = async (id: string) => {
+    try {
+      // Update the appointment status in the doctor_schedules table
+      const { error } = await supabase
+        .from('doctor_schedules')
+        .update({ status: 'unavailable' })
+        .eq('id', id);
+
+      if (error) throw error;
+
+      // Update the appointment in the state
+      setAppointments(
+        appointments.map((app) =>
+          app.id === id ? { ...app, status: "cancelled" as AppointmentStatus } : app
+        )
+      );
+      toast.success("Appointment cancelled successfully!");
+    } catch (error) {
+      console.error('Error cancelling appointment:', error);
+      toast.error('Failed to cancel appointment. Please try again.');
+    }
   };
 
   // Handle selecting an appointment for editing
@@ -195,11 +307,13 @@ const Appointments = () => {
                 appointments={appointments}
                 onSelectAppointment={handleSelectAppointment}
                 onCancelAppointment={handleCancelAppointment}
+                isLoading={isLoading}
               />
             ) : (
               <AppointmentCalendar
                 appointments={appointments}
                 onSelectAppointment={handleSelectAppointment}
+                isLoading={isLoading}
               />
             )}
           </>

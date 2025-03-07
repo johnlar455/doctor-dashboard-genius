@@ -65,3 +65,20 @@ export interface DoctorFeedback {
   comments?: string;
   created_at: string;
 }
+
+export interface Appointment {
+  id: string;
+  patientName: string;
+  patientId: string;
+  patientAvatar?: string;
+  patientInitials: string;
+  doctorName: string;
+  doctorId: string;
+  doctorAvatar?: string;
+  doctorInitials: string;
+  time: string;
+  date: string;
+  status: "upcoming" | "completed" | "cancelled";
+  type: string;
+  notes?: string;
+}

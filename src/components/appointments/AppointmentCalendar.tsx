@@ -6,18 +6,20 @@ import { Appointment } from "@/pages/Appointments";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { format } from "date-fns";
+import { format, isSameDay } from "date-fns";
 import { cn } from "@/lib/utils";
-import { Clock } from "lucide-react";
+import { Clock, Loader2 } from "lucide-react";
 
 interface AppointmentCalendarProps {
   appointments: Appointment[];
   onSelectAppointment: (appointment: Appointment) => void;
+  isLoading?: boolean;
 }
 
 export const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({
   appointments,
   onSelectAppointment,
+  isLoading = false,
 }) => {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
 
@@ -98,7 +100,12 @@ export const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {selectedDateAppointments.length === 0 ? (
+          {isLoading ? (
+            <div className="flex justify-center items-center py-10">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <span className="ml-2">Loading appointments...</span>
+            </div>
+          ) : selectedDateAppointments.length === 0 ? (
             <div className="text-center py-8">
               <p className="text-muted-foreground">No appointments for this date</p>
             </div>

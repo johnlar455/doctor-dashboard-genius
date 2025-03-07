@@ -2,17 +2,18 @@
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Calendar } from "@/components/ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format } from "date-fns";
-import { CalendarIcon, Clock } from "lucide-react";
+import { CalendarIcon, Clock, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Appointment } from "@/pages/Appointments";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { Patient, Doctor } from "@/types/supabase";
 
 interface AppointmentFormProps {
   initialData: Appointment | null;
@@ -20,22 +21,7 @@ interface AppointmentFormProps {
   onCancel: () => void;
 }
 
-// Mock data for doctors and patients
-const mockDoctors = [
-  { id: "d-001", name: "Dr. Michael Chen", initials: "MC", speciality: "General Medicine" },
-  { id: "d-002", name: "Dr. Lisa Wong", initials: "LW", speciality: "Pediatrics" },
-  { id: "d-003", name: "Dr. James Wilson", initials: "JW", speciality: "Cardiology" },
-  { id: "d-004", name: "Dr. Sarah Johnson", initials: "SJ", speciality: "Dermatology" },
-];
-
-const mockPatients = [
-  { id: "p-001", name: "Sarah Johnson", initials: "SJ" },
-  { id: "p-002", name: "Robert Williams", initials: "RW" },
-  { id: "p-003", name: "Emily Davis", initials: "ED" },
-  { id: "p-004", name: "David Miller", initials: "DM" },
-  { id: "p-005", name: "Jennifer Lopez", initials: "JL" },
-];
-
+// Available appointment types
 const appointmentTypes = [
   "General Checkup",
   "Consultation",
@@ -68,10 +54,65 @@ export const AppointmentForm: React.FC<AppointmentFormProps> = ({
     type: initialData?.type || "",
     notes: initialData?.notes || "",
   });
+  const [patients, setPatients] = useState<Patient[]>([]);
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [isLoadingPatients, setIsLoadingPatients] = useState(true);
+  const [isLoadingDoctors, setIsLoadingDoctors] = useState(true);
 
-  // Get patient and doctor details based on selected IDs
-  const selectedPatient = mockPatients.find(p => p.id === formData.patientId);
-  const selectedDoctor = mockDoctors.find(d => d.id === formData.doctorId);
+  // Fetch patients and doctors from Supabase
+  useEffect(() => {
+    const fetchPatients = async () => {
+      try {
+        setIsLoadingPatients(true);
+        const { data, error } = await supabase
+          .from('patients')
+          .select('*')
+          .order('name');
+        
+        if (error) throw error;
+        setPatients(data || []);
+      } catch (error) {
+        console.error('Error fetching patients:', error);
+        toast.error('Failed to load patients.');
+      } finally {
+        setIsLoadingPatients(false);
+      }
+    };
+
+    const fetchDoctors = async () => {
+      try {
+        setIsLoadingDoctors(true);
+        const { data, error } = await supabase
+          .from('doctors')
+          .select('*')
+          .order('name');
+        
+        if (error) throw error;
+        
+        // Transform JSON availability to the expected format
+        const transformedDoctors = data.map(doctor => ({
+          ...doctor,
+          availability: typeof doctor.availability === 'string' 
+            ? JSON.parse(doctor.availability) 
+            : doctor.availability
+        }));
+        
+        setDoctors(transformedDoctors || []);
+      } catch (error) {
+        console.error('Error fetching doctors:', error);
+        toast.error('Failed to load doctors.');
+      } finally {
+        setIsLoadingDoctors(false);
+      }
+    };
+
+    fetchPatients();
+    fetchDoctors();
+  }, []);
+
+  // Get selected patient and doctor
+  const selectedPatient = patients.find(p => p.id === formData.patientId);
+  const selectedDoctor = doctors.find(d => d.id === formData.doctorId);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -81,15 +122,13 @@ export const AppointmentForm: React.FC<AppointmentFormProps> = ({
       return;
     }
 
-    // Create full appointment object
+    // Create appointment data
     const appointmentData = {
       ...(initialData && { id: initialData.id }),
       patientId: formData.patientId,
       patientName: selectedPatient?.name || "",
-      patientInitials: selectedPatient?.initials || "",
       doctorId: formData.doctorId,
       doctorName: selectedDoctor?.name || "",
-      doctorInitials: selectedDoctor?.initials || "",
       date: date.toISOString().split('T')[0],
       time: formData.time,
       type: formData.type,
@@ -108,10 +147,12 @@ export const AppointmentForm: React.FC<AppointmentFormProps> = ({
   };
 
   const isAvailableTimeSlot = (timeSlot: string) => {
-    // For demonstration, we'll consider all slots available
-    // In a real app, you would check against doctor's schedule
+    // In a real app, check against doctor's availability
+    // For now, consider all slots available
     return true;
   };
+
+  const isLoading = isLoadingPatients || isLoadingDoctors;
 
   return (
     <Card className="animate-fade-in">
@@ -120,143 +161,153 @@ export const AppointmentForm: React.FC<AppointmentFormProps> = ({
       </CardHeader>
       <form onSubmit={handleSubmit}>
         <CardContent className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Patient Selection */}
-            <div className="space-y-2">
-              <Label htmlFor="patientId">Patient</Label>
-              <Select
-                value={formData.patientId}
-                onValueChange={(value) => setFormData({ ...formData, patientId: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a patient" />
-                </SelectTrigger>
-                <SelectContent>
-                  {mockPatients.map(patient => (
-                    <SelectItem key={patient.id} value={patient.id}>
-                      {patient.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+          {isLoading ? (
+            <div className="flex justify-center items-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <span className="ml-2">Loading...</span>
             </div>
-
-            {/* Doctor Selection */}
-            <div className="space-y-2">
-              <Label htmlFor="doctorId">Doctor</Label>
-              <Select
-                value={formData.doctorId}
-                onValueChange={(value) => setFormData({ ...formData, doctorId: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a doctor" />
-                </SelectTrigger>
-                <SelectContent>
-                  {mockDoctors.map(doctor => (
-                    <SelectItem key={doctor.id} value={doctor.id}>
-                      {doctor.name} - {doctor.speciality}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Date Selection */}
-            <div className="space-y-2">
-              <Label>Date</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "w-full justify-start text-left font-normal",
-                      !date && "text-muted-foreground"
-                    )}
+          ) : (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Patient Selection */}
+                <div className="space-y-2">
+                  <Label htmlFor="patientId">Patient</Label>
+                  <Select
+                    value={formData.patientId}
+                    onValueChange={(value) => setFormData({ ...formData, patientId: value })}
                   >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {date ? format(date, "PPP") : "Select a date"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0">
-                  <Calendar
-                    mode="single"
-                    selected={date}
-                    onSelect={setDate}
-                    initialFocus
-                    disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a patient" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {patients.map(patient => (
+                        <SelectItem key={patient.id} value={patient.id}>
+                          {patient.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-            {/* Time Selection */}
-            <div className="space-y-2">
-              <Label htmlFor="time">Time</Label>
-              <Select
-                value={formData.time}
-                onValueChange={(value) => setFormData({ ...formData, time: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select time">
-                    <div className="flex items-center">
-                      <Clock className="mr-2 h-4 w-4" />
-                      {formData.time || "Select a time"}
-                    </div>
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {timeSlots.map(time => (
-                    <SelectItem 
-                      key={time} 
-                      value={time}
-                      disabled={!isAvailableTimeSlot(time)}
-                    >
-                      {time}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+                {/* Doctor Selection */}
+                <div className="space-y-2">
+                  <Label htmlFor="doctorId">Doctor</Label>
+                  <Select
+                    value={formData.doctorId}
+                    onValueChange={(value) => setFormData({ ...formData, doctorId: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a doctor" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {doctors.map(doctor => (
+                        <SelectItem key={doctor.id} value={doctor.id}>
+                          {doctor.name} - {doctor.specialty}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-          {/* Appointment Type */}
-          <div className="space-y-2">
-            <Label htmlFor="type">Appointment Type</Label>
-            <Select
-              value={formData.type}
-              onValueChange={(value) => setFormData({ ...formData, type: value })}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select appointment type" />
-              </SelectTrigger>
-              <SelectContent>
-                {appointmentTypes.map(type => (
-                  <SelectItem key={type} value={type}>
-                    {type}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+                {/* Date Selection */}
+                <div className="space-y-2">
+                  <Label>Date</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-full justify-start text-left font-normal",
+                          !date && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {date ? format(date, "PPP") : "Select a date"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                      <Calendar
+                        mode="single"
+                        selected={date}
+                        onSelect={setDate}
+                        initialFocus
+                        disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+                        className={cn("p-3 pointer-events-auto")}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
 
-          {/* Notes */}
-          <div className="space-y-2">
-            <Label htmlFor="notes">Notes (Optional)</Label>
-            <Textarea
-              id="notes"
-              name="notes"
-              placeholder="Add any additional notes or instructions"
-              value={formData.notes}
-              onChange={handleChange}
-              className="min-h-[100px]"
-            />
-          </div>
+                {/* Time Selection */}
+                <div className="space-y-2">
+                  <Label htmlFor="time">Time</Label>
+                  <Select
+                    value={formData.time}
+                    onValueChange={(value) => setFormData({ ...formData, time: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select time">
+                        <div className="flex items-center">
+                          <Clock className="mr-2 h-4 w-4" />
+                          {formData.time || "Select a time"}
+                        </div>
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {timeSlots.map(time => (
+                        <SelectItem 
+                          key={time} 
+                          value={time}
+                          disabled={!isAvailableTimeSlot(time)}
+                        >
+                          {time}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* Appointment Type */}
+              <div className="space-y-2">
+                <Label htmlFor="type">Appointment Type</Label>
+                <Select
+                  value={formData.type}
+                  onValueChange={(value) => setFormData({ ...formData, type: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select appointment type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {appointmentTypes.map(type => (
+                      <SelectItem key={type} value={type}>
+                        {type}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Notes */}
+              <div className="space-y-2">
+                <Label htmlFor="notes">Notes (Optional)</Label>
+                <Textarea
+                  id="notes"
+                  name="notes"
+                  placeholder="Add any additional notes or instructions"
+                  value={formData.notes}
+                  onChange={handleChange}
+                  className="min-h-[100px]"
+                />
+              </div>
+            </>
+          )}
         </CardContent>
         <CardFooter className="flex justify-between">
           <Button type="button" variant="outline" onClick={onCancel}>
             Cancel
           </Button>
-          <Button type="submit">
+          <Button type="submit" disabled={isLoading}>
             {initialData ? "Update Appointment" : "Schedule Appointment"}
           </Button>
         </CardFooter>
