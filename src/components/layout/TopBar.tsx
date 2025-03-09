@@ -1,9 +1,19 @@
 
 import React from "react";
-import { BellIcon, Menu, Search, X } from "lucide-react";
+import { BellIcon, Menu, Search, X, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { useAuth } from "@/contexts/AuthContext";
+import { 
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu";
+import { toast } from "sonner";
 
 interface TopBarProps {
   toggleSidebar: () => void;
@@ -11,6 +21,34 @@ interface TopBarProps {
 }
 
 export const TopBar: React.FC<TopBarProps> = ({ toggleSidebar, isSidebarOpen }) => {
+  const { profile, signOut } = useAuth();
+  
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      toast.success("Successfully signed out");
+    } catch (error) {
+      toast.error("Error signing out");
+    }
+  };
+  
+  // Format user initials
+  const getUserInitials = () => {
+    if (!profile?.full_name) return "U";
+    
+    const nameParts = profile.full_name.split(" ");
+    if (nameParts.length >= 2) {
+      return `${nameParts[0][0]}${nameParts[nameParts.length - 1][0]}`.toUpperCase();
+    }
+    
+    return nameParts[0].substring(0, 2).toUpperCase();
+  };
+  
+  // Format user role with proper capitalization
+  const formatRole = (role: string) => {
+    return role.charAt(0).toUpperCase() + role.slice(1);
+  };
+
   return (
     <header className="h-16 border-b border-border bg-background/95 backdrop-blur-sm sticky top-0 z-30">
       <div className="flex items-center justify-between h-full px-4 sm:px-6 lg:px-8">
@@ -49,15 +87,31 @@ export const TopBar: React.FC<TopBarProps> = ({ toggleSidebar, isSidebarOpen }) 
           
           <div className="h-8 w-px bg-border" />
           
-          <div className="flex items-center space-x-2">
-            <div className="hidden md:block text-right">
-              <p className="text-sm font-medium">Dr. Alex Smith</p>
-              <p className="text-xs text-muted-foreground">Cardiologist</p>
-            </div>
-            <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center">
-              <span className="font-medium text-sm text-primary">AS</span>
-            </div>
-          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <div className="flex items-center space-x-2 cursor-pointer">
+                <div className="hidden md:block text-right">
+                  <p className="text-sm font-medium">{profile?.full_name || "User"}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {profile ? formatRole(profile.role) : "Guest"}
+                  </p>
+                </div>
+                <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center">
+                  <span className="font-medium text-sm text-primary">{getUserInitials()}</span>
+                </div>
+              </div>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>My Account</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => toast.info("Profile settings coming soon")}>
+                Profile Settings
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleSignOut} className="text-destructive">
+                <LogOut className="mr-2 h-4 w-4" /> Sign Out
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
     </header>

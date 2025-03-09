@@ -8,9 +8,12 @@ import {
   UserRound, 
   Settings,
   PieChart,
-  Home
+  Home,
+  LogOut
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 
 interface SidebarProps {
   isOpen: boolean;
@@ -20,20 +23,53 @@ interface NavItem {
   name: string;
   path: string;
   icon: React.ElementType;
+  roles?: ("admin" | "doctor" | "nurse" | "staff")[];
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
   const location = useLocation();
+  const { profile, signOut } = useAuth();
 
   const navigation: NavItem[] = [
     { name: "Dashboard", path: "/", icon: Home },
     { name: "Appointments", path: "/appointments", icon: CalendarDays },
-    { name: "Doctors", path: "/doctors", icon: UserRound },
+    { name: "Doctors", path: "/doctors", icon: UserRound, roles: ["admin", "doctor"] },
     { name: "Patients", path: "/patients", icon: Users },
-    { name: "Reports", path: "/reports", icon: BarChart3 },
-    { name: "Analytics", path: "/analytics", icon: PieChart },
-    { name: "Settings", path: "/settings", icon: Settings },
+    { name: "Reports", path: "/reports", icon: BarChart3, roles: ["admin", "doctor"] },
+    { name: "Analytics", path: "/analytics", icon: PieChart, roles: ["admin"] },
+    { name: "Settings", path: "/settings", icon: Settings, roles: ["admin"] },
   ];
+
+  // Filter nav items based on user role
+  const filteredNavigation = navigation.filter(
+    item => !item.roles || (profile && item.roles.includes(profile.role))
+  );
+
+  // Format user role with proper capitalization
+  const formatRole = (role: string) => {
+    return role.charAt(0).toUpperCase() + role.slice(1);
+  };
+
+  // Format user initials
+  const getUserInitials = () => {
+    if (!profile?.full_name) return "U";
+    
+    const nameParts = profile.full_name.split(" ");
+    if (nameParts.length >= 2) {
+      return `${nameParts[0][0]}${nameParts[nameParts.length - 1][0]}`.toUpperCase();
+    }
+    
+    return nameParts[0].substring(0, 2).toUpperCase();
+  };
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      toast.success("Successfully signed out");
+    } catch (error) {
+      toast.error("Error signing out");
+    }
+  };
 
   return (
     <aside 
@@ -55,7 +91,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
         
         <div className="flex-1 overflow-y-auto py-4 px-3">
           <nav className="space-y-1">
-            {navigation.map((item) => {
+            {filteredNavigation.map((item) => {
               const isActive = location.pathname === item.path;
               
               return (
@@ -86,17 +122,31 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
         </div>
         
         <div className="p-4 border-t border-border">
-          <div className="glass rounded-xl p-4 flex items-center space-x-3">
-            <div className="relative">
-              <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center">
-                <UserRound className="h-5 w-5 text-primary" />
+          <div className="glass rounded-xl p-4">
+            <div className="flex items-center space-x-3 mb-3">
+              <div className="relative">
+                <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center">
+                  <span className="font-medium text-sm text-primary">{getUserInitials()}</span>
+                </div>
+                <div className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-500 border-2 border-white" />
               </div>
-              <div className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-500 border-2 border-white" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-foreground truncate">
+                  {profile?.full_name || "User"}
+                </p>
+                <p className="text-xs text-muted-foreground truncate">
+                  {profile ? formatRole(profile.role) : "Guest"}
+                </p>
+              </div>
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-foreground truncate">Dr. Alex Smith</p>
-              <p className="text-xs text-muted-foreground truncate">Cardiologist</p>
-            </div>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="w-full flex items-center justify-center"
+              onClick={handleSignOut}
+            >
+              <LogOut className="h-4 w-4 mr-2" /> Sign Out
+            </Button>
           </div>
         </div>
       </div>

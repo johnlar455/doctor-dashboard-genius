@@ -6,6 +6,7 @@ import { CalendarPlus, Users, UserRound, FileText, MessageSquarePlus } from "luc
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface QuickAction {
   name: string;
@@ -13,6 +14,7 @@ interface QuickAction {
   color: string;
   bgColor: string;
   onClick: () => void;
+  roles?: ("admin" | "doctor" | "nurse" | "staff")[];
 }
 
 interface QuickActionsProps {
@@ -21,6 +23,7 @@ interface QuickActionsProps {
 
 export const QuickActions: React.FC<QuickActionsProps> = ({ className }) => {
   const navigate = useNavigate();
+  const { profile } = useAuth();
   
   const actions: QuickAction[] = [
     {
@@ -43,6 +46,7 @@ export const QuickActions: React.FC<QuickActionsProps> = ({ className }) => {
       color: "text-amber-600",
       bgColor: "bg-amber-100",
       onClick: () => navigate("/doctors"),
+      roles: ["admin", "doctor"],
     },
     {
       name: "Generate Report",
@@ -50,6 +54,7 @@ export const QuickActions: React.FC<QuickActionsProps> = ({ className }) => {
       color: "text-sky-600",
       bgColor: "bg-sky-100",
       onClick: () => navigate("/reports"),
+      roles: ["admin", "doctor"],
     },
     {
       name: "Send Message",
@@ -60,6 +65,11 @@ export const QuickActions: React.FC<QuickActionsProps> = ({ className }) => {
     },
   ];
 
+  // Filter actions based on user role
+  const filteredActions = actions.filter(
+    action => !action.roles || (profile && action.roles.includes(profile.role))
+  );
+
   return (
     <Card className={className}>
       <CardHeader className="pb-3">
@@ -68,7 +78,7 @@ export const QuickActions: React.FC<QuickActionsProps> = ({ className }) => {
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-2 gap-3">
-          {actions.slice(0, 4).map((action) => (
+          {filteredActions.slice(0, 4).map((action) => (
             <Button
               key={action.name}
               variant="outline"
