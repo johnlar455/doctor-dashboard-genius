@@ -5,13 +5,25 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recha
 
 interface PatientStatsProps {
   className?: string;
+  data?: {
+    new: number;
+    returning: number;
+    referred: number;
+  };
 }
 
-export const PatientStats: React.FC<PatientStatsProps> = ({ className }) => {
-  const data = [
-    { name: "New", value: 30, color: "hsl(var(--primary))" },
-    { name: "Returning", value: 65, color: "#8EB8FF" },
-    { name: "Referred", value: 15, color: "#C7DCFF" },
+export const PatientStats: React.FC<PatientStatsProps> = ({ 
+  className,
+  data = {
+    new: 30,
+    returning: 65,
+    referred: 15,
+  }
+}) => {
+  const chartData = [
+    { name: "New", value: data.new, color: "hsl(var(--primary))" },
+    { name: "Returning", value: data.returning, color: "#8EB8FF" },
+    { name: "Referred", value: data.referred, color: "#C7DCFF" },
   ];
 
   const RADIAN = Math.PI / 180;
@@ -52,7 +64,7 @@ export const PatientStats: React.FC<PatientStatsProps> = ({ className }) => {
         <ResponsiveContainer width="100%" height={240}>
           <PieChart>
             <Pie
-              data={data}
+              data={chartData}
               cx="50%"
               cy="50%"
               labelLine={false}
@@ -62,7 +74,7 @@ export const PatientStats: React.FC<PatientStatsProps> = ({ className }) => {
               paddingAngle={5}
               dataKey="value"
             >
-              {data.map((entry, index) => (
+              {chartData.map((entry, index) => (
                 <Cell key={`cell-${index}`} fill={entry.color} />
               ))}
             </Pie>

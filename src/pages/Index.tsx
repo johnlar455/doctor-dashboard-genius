@@ -7,83 +7,105 @@ import { AnalyticsChart } from "@/components/dashboard/AnalyticsChart";
 import { DoctorSchedule } from "@/components/dashboard/DoctorSchedule";
 import { PatientStats } from "@/components/dashboard/PatientStats";
 import { QuickActions } from "@/components/dashboard/QuickActions";
-import { CalendarDays, TrendingUp, Users, Activity } from "lucide-react";
+import { CalendarDays, TrendingUp, Users, Activity, Loader2 } from "lucide-react";
+import { useDashboardData } from "@/hooks/useDashboardData";
+import { parseAvailability } from "@/types/supabase";
+import { format } from "date-fns";
 
 const Index = () => {
-  // Mock appointments data
-  const appointments = [
-    {
-      id: "1",
-      patientName: "Emma Wilson",
-      patientInitials: "EW",
-      time: "10:00 AM",
-      date: "Today",
-      status: "upcoming" as const,
-      type: "General Checkup",
-    },
-    {
-      id: "2",
-      patientName: "Robert Johnson",
-      patientInitials: "RJ",
-      time: "11:30 AM",
-      date: "Today",
-      status: "upcoming" as const,
-      type: "Cardiology",
-    },
-    {
-      id: "3",
-      patientName: "Sarah Miller",
-      patientInitials: "SM",
-      time: "1:00 PM",
-      date: "Today",
-      status: "upcoming" as const,
-      type: "Dermatology",
-    },
-  ];
+  const { 
+    loading, 
+    error, 
+    appointments, 
+    todayAppointments,
+    stats, 
+    patientStats,
+    appointmentsByDay 
+  } = useDashboardData();
 
-  // Mock schedule data
-  const schedule = [
-    {
-      id: "1",
-      time: "09:00 AM",
-      patientName: "",
-      patientInitials: "",
-      type: "",
-      status: "available" as const,
-    },
-    {
-      id: "2",
-      time: "10:00 AM",
-      patientName: "Emma Wilson",
-      patientInitials: "EW",
-      type: "General Checkup",
-      status: "busy" as const,
-    },
-    {
-      id: "3",
-      time: "11:30 AM",
-      patientName: "Robert Johnson",
-      patientInitials: "RJ",
-      type: "Cardiology",
-      status: "busy" as const,
-    },
-    {
-      id: "4",
-      time: "12:30 PM",
-      patientName: "",
-      patientInitials: "",
-      type: "",
-      status: "break" as const,
-    },
-    {
-      id: "5",
-      time: "01:00 PM",
-      patientName: "Sarah Miller",
-      patientInitials: "SM",
-      type: "Dermatology",
-      status: "busy" as const,
-    },
-  ];
+  // Format appointments for display
+  const formattedAppointments = appointments.slice(0, 3).map(appointment => ({
+    id: appointment.id,
+    patientName: appointment.patients?.name || "Unknown Patient",
+    patientInitials: appointment.patients ? 
+      appointment.patients.name.split(' ').map(n => n[0]).join('').toUpperCase() : "??",
+    patientAvatar: null,
+    time: appointment.start_time,
+    date: appointment.appointment_date === format(new Date(), 'yyyy-MM-dd') 
+      ? "Today" 
+      : format(new Date(appointment.appointment_date), 'MMM dd'),
+    status: appointment.status as "upcoming" | "completed" | "cancelled",
+    type: appointment.type,
+  }));
+
+  // Format schedule for display
+  const schedule = todayAppointments.map(appointment => ({
+    id: appointment.id,
+    time: appointment.start_time,
+    patientName: appointment.patients?.name || "",
+    patientInitials: appointment.patients ? 
+      appointment.patients.name.split(' ').map(n => n[0]).join('').toUpperCase() : "",
+    patientAvatar: null,
+    type: appointment.type,
+    status: "busy" as const,
+  }));
+
+  // Add available and break slots if needed
+  if (schedule.length === 0) {
+    // Default schedule when no appointments
+    schedule.push(
+      {
+        id: "1",
+        time: "09:00 AM",
+        patientName: "",
+        patientInitials: "",
+        patientAvatar: null,
+        type: "",
+        status: "available" as const,
+      },
+      {
+        id: "2", 
+        time: "12:30 PM",
+        patientName: "",
+        patientInitials: "",
+        patientAvatar: null,
+        type: "",
+        status: "break" as const,
+      }
+    );
+  }
+
+  if (loading) {
+    return (
+      <DashboardLayout>
+        <div className="h-full flex items-center justify-center">
+          <div className="flex flex-col items-center">
+            <Loader2 className="h-10 w-10 text-primary animate-spin mb-4" />
+            <p className="text-lg text-muted-foreground">Loading dashboard data...</p>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  if (error) {
+    return (
+      <DashboardLayout>
+        <div className="h-full flex items-center justify-center">
+          <div className="text-center max-w-md mx-auto">
+            <h2 className="text-2xl font-bold text-destructive mb-2">Error Loading Dashboard</h2>
+            <p className="text-muted-foreground mb-4">{error}</p>
+            <button 
+              className="px-4 py-2 bg-primary text-primary-foreground rounded-md"
+              onClick={() => window.location.reload()}
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
@@ -98,7 +120,7 @@ const Index = () => {
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
           <StatCard
             title="Total Appointments"
-            value="32"
+            value={stats.totalAppointments.toString()}
             change={{ value: "8%", positive: true }}
             description="vs last week"
             icon={CalendarDays}
@@ -107,7 +129,7 @@ const Index = () => {
           />
           <StatCard
             title="New Patients"
-            value="12"
+            value={stats.newPatients.toString()}
             change={{ value: "10%", positive: true }}
             description="vs last week"
             icon={Users}
@@ -116,7 +138,7 @@ const Index = () => {
           />
           <StatCard
             title="Patient Satisfaction"
-            value="95%"
+            value={`${stats.patientSatisfaction}%`}
             change={{ value: "2%", positive: true }}
             description="vs last month"
             icon={TrendingUp}
@@ -125,7 +147,7 @@ const Index = () => {
           />
           <StatCard
             title="Department Rank"
-            value="#2"
+            value={`#${stats.departmentRank}`}
             change={{ value: "1", positive: true }}
             description="position up"
             icon={Activity}
@@ -136,15 +158,21 @@ const Index = () => {
         
         <div className="grid gap-6 lg:grid-cols-3">
           <AppointmentList 
-            appointments={appointments} 
+            appointments={formattedAppointments} 
             className="lg:col-span-2 animate-slide-in" 
           />
           <QuickActions className="animate-slide-in [animation-delay:100ms]" />
         </div>
         
         <div className="grid gap-6 lg:grid-cols-3">
-          <AnalyticsChart className="lg:col-span-2 animate-slide-in [animation-delay:150ms]" />
-          <PatientStats className="animate-slide-in [animation-delay:200ms]" />
+          <AnalyticsChart 
+            data={appointmentsByDay}
+            className="lg:col-span-2 animate-slide-in [animation-delay:150ms]" 
+          />
+          <PatientStats 
+            data={patientStats}
+            className="animate-slide-in [animation-delay:200ms]" 
+          />
         </div>
         
         <div className="animate-slide-in [animation-delay:250ms]">

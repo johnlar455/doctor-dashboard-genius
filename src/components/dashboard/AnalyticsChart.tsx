@@ -1,5 +1,5 @@
 
-import React from "react";
+import React, { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { Button } from "@/components/ui/button";
@@ -13,10 +13,16 @@ import {
 
 interface AnalyticsChartProps {
   className?: string;
+  data?: {
+    name: string;
+    appointments: number;
+    patients: number;
+  }[];
 }
 
-export const AnalyticsChart: React.FC<AnalyticsChartProps> = ({ className }) => {
-  const data = [
+export const AnalyticsChart: React.FC<AnalyticsChartProps> = ({ 
+  className, 
+  data = [
     { name: "Mon", appointments: 4, patients: 3 },
     { name: "Tue", appointments: 6, patients: 5 },
     { name: "Wed", appointments: 8, patients: 7 },
@@ -24,7 +30,9 @@ export const AnalyticsChart: React.FC<AnalyticsChartProps> = ({ className }) => 
     { name: "Fri", appointments: 9, patients: 8 },
     { name: "Sat", appointments: 3, patients: 2 },
     { name: "Sun", appointments: 2, patients: 1 },
-  ];
+  ]
+}) => {
+  const [period, setPeriod] = useState("weekly");
 
   return (
     <Card className={className}>
@@ -35,7 +43,10 @@ export const AnalyticsChart: React.FC<AnalyticsChartProps> = ({ className }) => 
             <CardDescription>Appointments and patients this week</CardDescription>
           </div>
           <div className="flex items-center space-x-2">
-            <Select defaultValue="weekly">
+            <Select 
+              defaultValue={period} 
+              onValueChange={setPeriod}
+            >
               <SelectTrigger className="h-8 w-[110px] text-xs">
                 <SelectValue placeholder="Period" />
               </SelectTrigger>

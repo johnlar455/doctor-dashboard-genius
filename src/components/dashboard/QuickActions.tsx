@@ -2,8 +2,10 @@
 import React from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { CalendarPlus, Users, UserRound, FileText } from "lucide-react";
+import { CalendarPlus, Users, UserRound, FileText, MessageSquarePlus } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 
 interface QuickAction {
   name: string;
@@ -18,34 +20,43 @@ interface QuickActionsProps {
 }
 
 export const QuickActions: React.FC<QuickActionsProps> = ({ className }) => {
+  const navigate = useNavigate();
+  
   const actions: QuickAction[] = [
     {
       name: "New Appointment",
       icon: CalendarPlus,
       color: "text-purple-600",
       bgColor: "bg-purple-100",
-      onClick: () => console.log("New appointment"),
+      onClick: () => navigate("/appointments"),
     },
     {
       name: "Add Patient",
       icon: Users,
       color: "text-green-600",
       bgColor: "bg-green-100",
-      onClick: () => console.log("Add patient"),
+      onClick: () => navigate("/patients"),
     },
     {
       name: "Doctor Schedule",
       icon: UserRound,
       color: "text-amber-600",
       bgColor: "bg-amber-100",
-      onClick: () => console.log("Doctor schedule"),
+      onClick: () => navigate("/doctors"),
     },
     {
       name: "Generate Report",
       icon: FileText,
       color: "text-sky-600",
       bgColor: "bg-sky-100",
-      onClick: () => console.log("Generate report"),
+      onClick: () => navigate("/reports"),
+    },
+    {
+      name: "Send Message",
+      icon: MessageSquarePlus,
+      color: "text-rose-600",
+      bgColor: "bg-rose-100",
+      onClick: () => toast.success("Message feature coming soon!"),
     },
   ];
 
@@ -57,7 +68,7 @@ export const QuickActions: React.FC<QuickActionsProps> = ({ className }) => {
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-2 gap-3">
-          {actions.map((action) => (
+          {actions.slice(0, 4).map((action) => (
             <Button
               key={action.name}
               variant="outline"
