@@ -1,97 +1,41 @@
 
+import { Json } from "@/integrations/supabase/types";
+
 export interface Doctor {
   id: string;
   name: string;
-  avatar?: string;
   specialty: string;
   department: string;
   email: string;
   phone: string;
   bio: string;
-  availability: {
-    start: string;
-    end: string;
-    days: string[];
-  };
+  avatar: string | null;
   created_at: string;
+  availability: Json;
 }
 
-export interface DoctorSchedule {
-  id: string;
-  doctor_id: string;
-  slot_date: string;
-  start_time: string;
-  end_time: string;
-  status: "available" | "booked" | "unavailable";
-  patient_id?: string;
-  created_at: string;
-}
-
-export interface Patient {
-  id: string;
-  name: string;
-  email: string;
-  phone: string;
-  gender: string;
-  date_of_birth: string;
-  age: number;
-  blood_type?: string;
-  address?: string;
-  emergency_contact?: string;
-  last_visit?: string;
-  status: string;
-  created_at: string;
-}
-
-export interface MedicalRecord {
-  id: string;
-  patient_id: string;
-  type: string;
-  description: string;
-  date: string;
-  prescriptions?: string[];
-  created_at: string;
-}
-
-export interface DoctorFeedback {
-  id: string;
-  doctor_id: string;
-  patient_id: string;
-  punctuality: number;
-  knowledge: number;
-  communication: number;
-  friendliness: number;
-  overall: number;
-  comments?: string;
-  created_at: string;
-}
-
-export interface Appointment {
-  id: string;
-  patientName: string;
-  patientId: string;
-  patientAvatar?: string;
-  patientInitials: string;
-  doctorName: string;
-  doctorId: string;
-  doctorAvatar?: string;
-  doctorInitials: string;
-  time: string;
-  date: string;
-  status: "upcoming" | "completed" | "cancelled";
-  type: string;
-  notes?: string;
-}
-
-export interface AppointmentData {
-  id: string;
-  patient_id: string;
-  doctor_id: string;
-  appointment_date: string;
-  start_time: string;
-  end_time: string;
-  type: string;
-  status: "upcoming" | "completed" | "cancelled";
-  notes?: string;
-  created_at: string;
-}
+export const parseAvailability = (availability: Json): { start: string; end: string; days: string[] } => {
+  try {
+    if (typeof availability === 'object' && availability !== null) {
+      return availability as { start: string; end: string; days: string[] };
+    }
+    
+    if (typeof availability === 'string') {
+      return JSON.parse(availability);
+    }
+    
+    // Default fallback
+    return {
+      start: '09:00',
+      end: '17:00',
+      days: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
+    };
+  } catch (e) {
+    console.error('Error parsing doctor availability:', e);
+    return {
+      start: '09:00',
+      end: '17:00',
+      days: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
+    };
+  }
+};
