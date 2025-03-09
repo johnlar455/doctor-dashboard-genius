@@ -39,3 +39,48 @@ export const parseAvailability = (availability: Json): { start: string; end: str
     };
   }
 };
+
+export interface Patient {
+  id: string;
+  name: string;
+  gender: string;
+  age: number;
+  email: string;
+  phone: string;
+  address?: string;
+  date_of_birth: string;
+  blood_type?: string;
+  emergency_contact?: string;
+  status: string;
+  created_at: string;
+  last_visit?: string;
+}
+
+export interface Appointment {
+  id: string;
+  doctor_id: string;
+  patient_id: string;
+  appointment_date: string;
+  start_time: string;
+  end_time: string;
+  type: string;
+  status: string;
+  notes?: string;
+  created_at: string;
+}
+
+export interface AppointmentData extends Appointment {
+  doctors: Doctor;
+  patients: Patient;
+}
+
+export interface DoctorSchedule {
+  id: string;
+  doctor_id: string;
+  slot_date: string;
+  start_time: string;
+  end_time: string;
+  status: string;
+  patient_id?: string;
+  created_at: string;
+}

@@ -7,6 +7,7 @@ import { SpecialtyManagement } from "@/components/settings/SpecialtyManagement";
 import { NotificationSettings } from "@/components/settings/NotificationSettings";
 import { AppearanceSettings } from "@/components/settings/AppearanceSettings";
 import { Cog, Users, Stethoscope, Bell, Moon } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 const Settings = () => {
   const [activeTab, setActiveTab] = useState("user-management");

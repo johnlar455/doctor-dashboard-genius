@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { 
   Card, 
   CardContent, 
@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { supabase } from "@/integrations/supabase/client";
 import { 
   Sun, 
   Moon, 
@@ -22,10 +23,23 @@ import {
   Check 
 } from "lucide-react";
 
+type ThemeType = "light" | "dark" | "system";
+type AccentColorType = "blue" | "green" | "purple" | "orange" | "red" | "gray";
+type FontType = "inter" | "roboto" | "sf-pro" | "open-sans";
+
+interface AppearanceSettings {
+  theme: ThemeType;
+  reduceMotion: boolean;
+  highContrast: boolean;
+  largeText: boolean;
+  fontFamily: FontType;
+  accentColor: AccentColorType;
+}
+
 export const AppearanceSettings = () => {
   const { toast } = useToast();
-  const [theme, setTheme] = useState("system");
-  const [settings, setSettings] = useState({
+  const [settings, setSettings] = useState<AppearanceSettings>({
+    theme: "system",
     reduceMotion: false,
     highContrast: false,
     largeText: false,
@@ -33,20 +47,54 @@ export const AppearanceSettings = () => {
     accentColor: "blue",
   });
 
-  const handleThemeChange = (newTheme: string) => {
-    setTheme(newTheme);
+  // Attempt to load user preferences from localStorage on component mount
+  useEffect(() => {
+    try {
+      const savedSettings = localStorage.getItem('appearanceSettings');
+      if (savedSettings) {
+        setSettings(JSON.parse(savedSettings));
+      }
+    } catch (error) {
+      console.error('Error loading saved appearance settings:', error);
+    }
+  }, []);
+
+  const handleThemeChange = (newTheme: ThemeType) => {
+    setSettings({
+      ...settings,
+      theme: newTheme
+    });
     // In a real app, this would apply the theme to the application
   };
 
   const handleSave = () => {
-    // In a real app, this would send to the database and apply settings
-    toast({
-      title: "Appearance settings saved",
-      description: "Your display preferences have been updated",
-    });
+    // Save to localStorage for persistence
+    try {
+      localStorage.setItem('appearanceSettings', JSON.stringify(settings));
+      
+      // In a real app with authentication, you would save to the database
+      // const { data, error } = await supabase
+      //   .from('user_settings')
+      //   .upsert({ 
+      //     user_id: userId, 
+      //     appearance: settings 
+      //   });
+      
+      toast({
+        title: "Appearance settings saved",
+        description: "Your display preferences have been updated",
+      });
+    } catch (error) {
+      console.error("Error saving settings:", error);
+      toast({
+        title: "Failed to save settings",
+        description: "Please try again later",
+        variant: "destructive"
+      });
+    }
   };
 
-  const applyChange = (key: keyof typeof settings, value: any) => {
+  const applyChange = <K extends keyof AppearanceSettings>(key: K, value: AppearanceSettings[K]) => {
     setSettings({
       ...settings,
       [key]: value,
@@ -54,7 +102,7 @@ export const AppearanceSettings = () => {
     // In a real app, this would apply the setting immediately
   };
 
-  const accentColors = [
+  const accentColors: Array<{ name: string; value: AccentColorType; class: string }> = [
     { name: "Blue", value: "blue", class: "bg-blue-500" },
     { name: "Green", value: "green", class: "bg-green-500" },
     { name: "Purple", value: "purple", class: "bg-purple-500" },
@@ -63,7 +111,7 @@ export const AppearanceSettings = () => {
     { name: "Gray", value: "gray", class: "bg-gray-500" },
   ];
 
-  const fonts = [
+  const fonts: Array<{ name: string; value: FontType }> = [
     { name: "Inter", value: "inter" },
     { name: "Roboto", value: "roboto" },
     { name: "SF Pro", value: "sf-pro" },
@@ -83,7 +131,7 @@ export const AppearanceSettings = () => {
           <h3 className="text-lg font-medium mb-3">Theme</h3>
           <div className="grid grid-cols-3 gap-4">
             <Button
-              variant={theme === "light" ? "default" : "outline"}
+              variant={settings.theme === "light" ? "default" : "outline"}
               className="flex flex-col items-center justify-center gap-2 h-24"
               onClick={() => handleThemeChange("light")}
             >
@@ -91,7 +139,7 @@ export const AppearanceSettings = () => {
               <span>Light</span>
             </Button>
             <Button
-              variant={theme === "dark" ? "default" : "outline"}
+              variant={settings.theme === "dark" ? "default" : "outline"}
               className="flex flex-col items-center justify-center gap-2 h-24"
               onClick={() => handleThemeChange("dark")}
             >
@@ -99,7 +147,7 @@ export const AppearanceSettings = () => {
               <span>Dark</span>
             </Button>
             <Button
-              variant={theme === "system" ? "default" : "outline"}
+              variant={settings.theme === "system" ? "default" : "outline"}
               className="flex flex-col items-center justify-center gap-2 h-24"
               onClick={() => handleThemeChange("system")}
             >

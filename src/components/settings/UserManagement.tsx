@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { 
   Card, 
@@ -62,7 +61,7 @@ export const UserManagement = () => {
       try {
         setIsLoading(true);
         // In a real app, this would fetch from the database
-        // Mock data for demonstration
+        // For now, let's use mock data formatted as if it came from the database
         const mockUsers: User[] = [
           {
             id: "1",
@@ -313,7 +312,6 @@ export const UserManagement = () => {
           </Table>
         </div>
 
-        {/* Add User Dialog */}
         <Dialog open={isAddUserOpen} onOpenChange={setIsAddUserOpen}>
           <DialogContent>
             <DialogHeader>
@@ -384,7 +382,6 @@ export const UserManagement = () => {
           </DialogContent>
         </Dialog>
 
-        {/* Edit User Dialog */}
         <Dialog open={isEditUserOpen} onOpenChange={setIsEditUserOpen}>
           <DialogContent>
             <DialogHeader>
