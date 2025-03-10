@@ -11,9 +11,10 @@ import { Button } from "@/components/ui/button";
 import { Calendar } from "lucide-react";
 import { format } from "date-fns";
 import { Doctor, parseDoctorAvailability } from "@/types/doctor";
+import { Doctor as SupabaseDoctor } from "@/types/supabase";
 
 interface DoctorScheduleDialogProps {
-  doctor: Doctor;
+  doctor: Doctor | SupabaseDoctor;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
@@ -23,7 +24,7 @@ export const DoctorScheduleDialog: React.FC<DoctorScheduleDialogProps> = ({
   open,
   onOpenChange,
 }) => {
-  // Parse availability if needed (important since doctor.availability might be Json)
+  // Parse availability (handle both Doctor and SupabaseDoctor types)
   const availability = typeof doctor.availability === 'object' && 
                        'days' in doctor.availability && 
                        'start' in doctor.availability && 

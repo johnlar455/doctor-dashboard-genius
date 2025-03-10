@@ -3,6 +3,7 @@ import React, { createContext, useContext, useEffect, useState } from "react";
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 
 type UserRole = "admin" | "doctor" | "nurse" | "staff";
 
@@ -77,10 +78,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (newSession) {
           setSession(newSession);
           setUser(newSession.user);
+          // Force a fetch of the profile to ensure we have the latest data
           await fetchProfile(newSession.user.id);
           
           // On sign-in, redirect to dashboard
           if (event === "SIGNED_IN") {
+            toast.success("Successfully signed in");
             navigate("/");
           }
         } else {
@@ -118,7 +121,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return;
       }
       
-      console.log("Profile data:", data);
+      console.log("Profile data fetched successfully:", data);
       setProfile(data as Profile);
     } catch (error) {
       console.error("Unexpected error fetching profile:", error);

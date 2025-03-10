@@ -1,5 +1,5 @@
 
-import React from "react";
+import React, { useEffect } from "react";
 import { BellIcon, Menu, Search, X, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,6 +14,7 @@ import {
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 interface TopBarProps {
   toggleSidebar: () => void;
@@ -21,7 +22,34 @@ interface TopBarProps {
 }
 
 export const TopBar: React.FC<TopBarProps> = ({ toggleSidebar, isSidebarOpen }) => {
-  const { profile, signOut } = useAuth();
+  const { profile, user, signOut } = useAuth();
+  
+  useEffect(() => {
+    // Debug logging to see what profile data we have
+    if (user && !profile) {
+      console.log("User is logged in but profile is missing", user);
+      // Attempt to refetch profile if missing
+      const fetchProfile = async () => {
+        try {
+          const { data, error } = await supabase
+            .from("profiles")
+            .select("*")
+            .eq("id", user.id)
+            .single();
+            
+          if (error) {
+            console.error("Error fetching profile in TopBar:", error);
+          } else {
+            console.log("Profile data in TopBar:", data);
+          }
+        } catch (error) {
+          console.error("Unexpected error fetching profile in TopBar:", error);
+        }
+      };
+      
+      fetchProfile();
+    }
+  }, [user, profile]);
   
   const handleSignOut = async () => {
     try {
@@ -34,7 +62,13 @@ export const TopBar: React.FC<TopBarProps> = ({ toggleSidebar, isSidebarOpen }) 
   
   // Format user initials
   const getUserInitials = () => {
-    if (!profile?.full_name) return "U";
+    if (!profile?.full_name) {
+      // If we have a user email but no profile name, use the first letter of the email
+      if (user?.email) {
+        return user.email.charAt(0).toUpperCase();
+      }
+      return "U";
+    }
     
     const nameParts = profile.full_name.split(" ");
     if (nameParts.length >= 2) {
@@ -47,6 +81,18 @@ export const TopBar: React.FC<TopBarProps> = ({ toggleSidebar, isSidebarOpen }) 
   // Format user role with proper capitalization
   const formatRole = (role: string) => {
     return role.charAt(0).toUpperCase() + role.slice(1);
+  };
+  
+  // Get user display name
+  const getUserName = () => {
+    if (profile?.full_name) {
+      return profile.full_name;
+    }
+    if (user?.email) {
+      // If no name, use email as fallback
+      return user.email.split('@')[0]; // Use part before @
+    }
+    return "User";
   };
 
   return (
@@ -91,9 +137,9 @@ export const TopBar: React.FC<TopBarProps> = ({ toggleSidebar, isSidebarOpen }) 
             <DropdownMenuTrigger asChild>
               <div className="flex items-center space-x-2 cursor-pointer">
                 <div className="hidden md:block text-right">
-                  <p className="text-sm font-medium">{profile?.full_name || "User"}</p>
+                  <p className="text-sm font-medium">{getUserName()}</p>
                   <p className="text-xs text-muted-foreground">
-                    {profile ? formatRole(profile.role) : "Guest"}
+                    {profile ? formatRole(profile.role) : user ? "User" : "Guest"}
                   </p>
                 </div>
                 <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center">

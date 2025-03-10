@@ -1,3 +1,4 @@
+
 import React from "react";
 import { useNavigate, Link, useLocation } from "react-router-dom";
 import { 
@@ -28,7 +29,7 @@ interface NavItem {
 
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
   const location = useLocation();
-  const { profile, signOut } = useAuth();
+  const { profile, user, signOut } = useAuth();
   const navigate = useNavigate();
 
   const navigation: NavItem[] = [
@@ -49,8 +50,25 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
     return role.charAt(0).toUpperCase() + role.slice(1);
   };
 
+  const getUserName = () => {
+    if (profile?.full_name) {
+      return profile.full_name;
+    }
+    if (user?.email) {
+      // If no name, use email as fallback
+      return user.email.split('@')[0]; // Use part before @
+    }
+    return "User";
+  };
+
   const getUserInitials = () => {
-    if (!profile?.full_name) return "U";
+    if (!profile?.full_name) {
+      // If we have a user email but no profile name, use the first letter of the email
+      if (user?.email) {
+        return user.email.charAt(0).toUpperCase();
+      }
+      return "U";
+    }
     
     const nameParts = profile.full_name.split(" ");
     if (nameParts.length >= 2) {
@@ -130,10 +148,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-foreground truncate">
-                  {profile?.full_name || "User"}
+                  {getUserName()}
                 </p>
                 <p className="text-xs text-muted-foreground truncate">
-                  {profile ? formatRole(profile.role) : "Guest"}
+                  {profile ? formatRole(profile.role) : user ? "User" : "Guest"}
                 </p>
               </div>
             </div>
