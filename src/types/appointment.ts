@@ -24,6 +24,7 @@ export interface Appointment {
   patientName: string;
   patientId: string;
   patientInitials: string;
+  patientAvatar?: string | null;
   doctorName: string;
   doctorId: string;
   doctorAvatar?: string | null;
@@ -63,6 +64,7 @@ export const mapDatabaseAppointmentToFrontend = (
     patientName: patient?.name || appointmentData.patients?.name || '',
     patientId: appointmentData.patient_id,
     patientInitials,
+    patientAvatar: patient?.avatar || appointmentData.patients?.avatar,
     doctorName: doctor?.name || appointmentData.doctors?.name || '',
     doctorId: appointmentData.doctor_id,
     doctorAvatar: doctor?.avatar || appointmentData.doctors?.avatar,

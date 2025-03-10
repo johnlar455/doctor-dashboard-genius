@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,6 +14,7 @@ import { Appointment } from "@/types/appointment";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Patient, Doctor } from "@/types/supabase";
+import { AppointmentStatus } from "@/pages/Appointments";
 
 interface AppointmentFormProps {
   initialData: Appointment | null;
@@ -122,20 +124,32 @@ export const AppointmentForm: React.FC<AppointmentFormProps> = ({
     }
 
     // Create appointment data
-    const appointmentData = {
-      ...(initialData && { id: initialData.id }),
+    const appointmentData: Appointment = {
+      id: initialData?.id || "",
       patientId: formData.patientId,
       patientName: selectedPatient?.name || "",
+      patientInitials: selectedPatient ? getInitials(selectedPatient.name) : "",
+      patientAvatar: null,
       doctorId: formData.doctorId,
       doctorName: selectedDoctor?.name || "",
+      doctorInitials: selectedDoctor ? getInitials(selectedDoctor.name) : "",
+      doctorAvatar: selectedDoctor?.avatar || null,
       date: date.toISOString().split('T')[0],
       time: formData.time,
       type: formData.type,
       notes: formData.notes,
-      status: initialData?.status || "upcoming",
+      status: initialData?.status || "upcoming" as AppointmentStatus,
     };
 
     onSubmit(appointmentData);
+  };
+
+  const getInitials = (name: string): string => {
+    return name
+      .split(' ')
+      .map(part => part[0])
+      .join('')
+      .toUpperCase();
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {

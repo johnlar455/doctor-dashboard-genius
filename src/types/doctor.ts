@@ -16,7 +16,7 @@ export interface Doctor {
   phone: string;
   bio: string;
   avatar: string | null;
-  availability: DoctorAvailability | any; // Changed from Json to any to avoid import issues
+  availability: DoctorAvailability;
   created_at?: string;
 }
 

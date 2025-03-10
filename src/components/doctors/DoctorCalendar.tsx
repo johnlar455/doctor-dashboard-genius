@@ -1,281 +1,223 @@
-import React, { useState, useEffect } from "react";
-import { Card, CardContent } from "@/components/ui/card";
+import React, { useState } from "react";
 import { Calendar } from "@/components/ui/calendar";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { format, isSameDay } from "date-fns";
 import { cn } from "@/lib/utils";
-import { supabase } from "@/integrations/supabase/client";
-import { Doctor } from "@/types/supabase";
+import { Clock, Loader2 } from "lucide-react";
+import { Appointment } from "@/types/appointment";
+import { Doctor } from "@/types/doctor";
 import { parseDoctorAvailability } from "@/types/doctor";
-import { LoadingState } from "@/components/patients/details/LoadingState";
-import { ErrorState } from "@/components/patients/details/ErrorState";
 
-interface ScheduleSlot {
-  id: string;
-  date: Date;
-  start: string;
-  end: string;
-  status: "available" | "booked" | "unavailable";
-  patientId?: string;
-  patientName?: string;
+interface DoctorCalendarProps {
+  doctors?: Doctor[];
+  appointments: Appointment[];
+  onSelectAppointment: (appointment: Appointment) => void;
+  isLoading?: boolean;
 }
 
-export const DoctorCalendar = () => {
-  const [doctors, setDoctors] = useState<Doctor[]>([]);
-  const [selectedDoctor, setSelectedDoctor] = useState<string>("");
-  const [date, setDate] = useState<Date>(new Date());
-  const [scheduleSlots, setScheduleSlots] = useState<ScheduleSlot[]>([]);
-  const [isLoadingDoctors, setIsLoadingDoctors] = useState(true);
-  const [isLoadingSchedule, setIsLoadingSchedule] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+export const DoctorCalendar: React.FC<DoctorCalendarProps> = ({
+  doctors = [],
+  appointments,
+  onSelectAppointment,
+  isLoading = false,
+}) => {
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
+  const [selectedDoctor, setSelectedDoctor] = useState<string | null>(null);
 
-  useEffect(() => {
-    const fetchDoctors = async () => {
-      try {
-        setIsLoadingDoctors(true);
-        const { data, error } = await supabase
-          .from('doctors')
-          .select('*');
-        
-        if (error) throw error;
-        
-        setDoctors(data);
-        if (data.length > 0 && !selectedDoctor) {
-          setSelectedDoctor(data[0].id);
-        }
-      } catch (err) {
-        console.error('Error fetching doctors:', err);
-        setError('Failed to load doctors data. Please try again later.');
-      } finally {
-        setIsLoadingDoctors(false);
-      }
-    };
+  // Filter appointments by selected doctor
+  const filteredAppointments = selectedDoctor
+    ? appointments.filter((appointment) => appointment.doctorId === selectedDoctor)
+    : appointments;
 
-    fetchDoctors();
-  }, []);
-
-  useEffect(() => {
-    const fetchDoctorSchedule = async () => {
-      if (!selectedDoctor) return;
-      
-      try {
-        setIsLoadingSchedule(true);
-        
-        const startOfSelectedDate = new Date(date);
-        startOfSelectedDate.setHours(0, 0, 0, 0);
-        
-        const endOfSelectedDate = new Date(date);
-        endOfSelectedDate.setHours(23, 59, 59, 999);
-        
-        const { data, error } = await supabase
-          .from('doctor_schedules')
-          .select('*, patients(name)')
-          .eq('doctor_id', selectedDoctor)
-          .gte('slot_date', startOfSelectedDate.toISOString())
-          .lte('slot_date', endOfSelectedDate.toISOString())
-          .order('slot_date', { ascending: true });
-        
-        if (error) throw error;
-        
-        if (!data || data.length === 0) {
-          const doctor = doctors.find(d => d.id === selectedDoctor);
-          if (doctor) {
-            const slots = generateDefaultSchedule(doctor, date);
-            setScheduleSlots(slots);
-          } else {
-            setScheduleSlots([]);
-          }
-        } else {
-          const slots = data.map(slot => ({
-            id: slot.id,
-            date: new Date(slot.slot_date),
-            start: slot.start_time,
-            end: slot.end_time,
-            status: slot.status as "available" | "booked" | "unavailable",
-            patientId: slot.patient_id,
-            patientName: slot.patients?.name
-          }));
-          
-          setScheduleSlots(slots);
-        }
-      } catch (err) {
-        console.error('Error fetching doctor schedule:', err);
-      } finally {
-        setIsLoadingSchedule(false);
-      }
-    };
-    
-    fetchDoctorSchedule();
-  }, [selectedDoctor, date, doctors]);
-  
-  const generateDefaultSchedule = (doctor: Doctor, selectedDate: Date): ScheduleSlot[] => {
-    const slots: ScheduleSlot[] = [];
-    const availability = parseDoctorAvailability(doctor.availability);
-    const availableDays = availability.days;
-    const startTime = availability.start;
-    const endTime = availability.end;
-    
-    const dayName = format(selectedDate, 'EEEE').toLowerCase();
-    
-    if (availableDays.includes(dayName)) {
-      const [startHour, startMinute] = startTime.split(':').map(Number);
-      const [endHour, endMinute] = endTime.split(':').map(Number);
-      
-      let slotDate = new Date(selectedDate);
-      slotDate.setHours(startHour, startMinute, 0);
-      
-      const endDateTime = new Date(selectedDate);
-      endDateTime.setHours(endHour, endMinute, 0);
-      
-      while (slotDate < endDateTime) {
-        const slotStart = format(slotDate, 'HH:mm');
-        
-        const nextSlotDate = new Date(slotDate);
-        nextSlotDate.setHours(slotDate.getHours() + 1);
-        const slotEnd = format(nextSlotDate, 'HH:mm');
-        
-        const statusOptions: ("available" | "booked" | "unavailable")[] = ["available", "available", "available", "booked", "unavailable"];
-        const randomStatus = statusOptions[Math.floor(Math.random() * statusOptions.length)];
-        
-        slots.push({
-          id: `temp-${slotStart}`,
-          date: new Date(slotDate),
-          start: slotStart,
-          end: slotEnd,
-          status: randomStatus,
-          patientName: randomStatus === "booked" ? `Patient ${Math.floor(Math.random() * 100)}` : undefined
-        });
-        
-        slotDate = nextSlotDate;
-      }
+  // Group appointments by date
+  const appointmentsByDate = filteredAppointments.reduce((acc, appointment) => {
+    const date = appointment.date;
+    if (!acc[date]) {
+      acc[date] = [];
     }
+    acc[date].push(appointment);
+    return acc;
+  }, {} as Record<string, Appointment[]>);
+
+  // Get appointments for the selected date
+  const getAppointmentsForDate = (date: Date | undefined) => {
+    if (!date) return [];
     
-    return slots;
+    const dateStr = format(date, "yyyy-MM-dd");
+    return appointmentsByDate[dateStr] || [];
   };
 
-  const doctor = doctors.find(d => d.id === selectedDoctor);
+  // Calendar rendering functions
+  const renderDateContent = (date: Date) => {
+    const dateStr = format(date, "yyyy-MM-dd");
+    const dateAppointments = appointmentsByDate[dateStr] || [];
 
-  const daySchedule = scheduleSlots
-    .filter(slot => isSameDay(slot.date, date))
-    .sort((a, b) => a.start.localeCompare(b.start));
+    if (dateAppointments.length === 0) return null;
 
-  if (isLoadingDoctors) return <LoadingState />;
-  if (error) return <ErrorState message={error} />;
+    const hasUpcoming = dateAppointments.some(a => a.status === "upcoming");
+    
+    return (
+      <div className="absolute bottom-0 left-0 right-0 flex justify-center">
+        <div 
+          className={cn(
+            "h-1.5 w-1.5 rounded-full",
+            hasUpcoming ? "bg-primary" : "bg-muted-foreground"
+          )}
+        />
+      </div>
+    );
+  };
+
+  // Sort appointments by time for the current date
+  const selectedDateAppointments = getAppointmentsForDate(selectedDate)
+    .sort((a, b) => {
+      // Simple time comparison - in a real app you might want to use a more robust approach
+      return a.time.localeCompare(b.time);
+    });
+
+  // Doctor availability rendering
+  const renderDoctorAvailability = (doctor: Doctor) => {
+    const availability = parseDoctorAvailability(doctor.availability);
+    const availableDays = availability.days.map(day => day.toLowerCase());
+    
+    return (date: Date) => {
+      const dayOfWeek = format(date, 'EEEE').toLowerCase();
+      const isAvailable = availableDays.includes(dayOfWeek);
+      
+      return isAvailable ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
+    };
+  };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center gap-4">
-        <Select value={selectedDoctor} onValueChange={setSelectedDoctor}>
-          <SelectTrigger className="w-full md:w-[250px]">
-            <SelectValue placeholder="Select a doctor" />
-          </SelectTrigger>
-          <SelectContent>
-            {doctors.map((doctor) => (
-              <SelectItem key={doctor.id} value={doctor.id}>
-                {doctor.name} ({doctor.specialty})
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        
-        {doctor && (
-          <div className="flex items-center text-sm text-muted-foreground gap-2">
-            <span>Availability:</span>
-            {parseDoctorAvailability(doctor.availability).days.map((day) => (
-              <Badge key={day} variant="outline" className="capitalize">
-                {day}
-              </Badge>
-            ))}
-            <span className="ml-2">
-              {parseDoctorAvailability(doctor.availability).start} - {parseDoctorAvailability(doctor.availability).end}
-            </span>
-          </div>
-        )}
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="md:col-span-1">
-          <CardContent className="p-4">
-            <Calendar
-              mode="single"
-              selected={date}
-              onSelect={(newDate) => newDate && setDate(newDate)}
-              className="rounded-md"
-            />
-            
-            <div className="mt-4 space-y-2">
-              <div className="text-sm font-medium">Schedule Legend:</div>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                <span className="text-sm">Available</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-                <span className="text-sm">Booked</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-gray-300"></div>
-                <span className="text-sm">Unavailable</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="md:col-span-2">
-          <CardContent className="p-4">
-            <h3 className="text-lg font-medium mb-4">
-              Schedule for {format(date, "EEEE, MMMM d, yyyy")}
-            </h3>
-
-            {isLoadingSchedule ? (
-              <LoadingState />
-            ) : daySchedule.length > 0 ? (
-              <div className="space-y-2">
-                {daySchedule.map((slot) => (
-                  <div
-                    key={slot.id}
-                    className={cn(
-                      "p-3 rounded-md border flex justify-between items-center",
-                      slot.status === "available" && "border-green-200 bg-green-50",
-                      slot.status === "booked" && "border-blue-200 bg-blue-50",
-                      slot.status === "unavailable" && "border-gray-200 bg-gray-50"
-                    )}
-                  >
-                    <div>
-                      <div className="font-medium">
-                        {slot.start} - {slot.end}
-                      </div>
-                      {slot.status === "booked" && slot.patientName && (
-                        <div className="text-sm text-muted-foreground">
-                          Patient: {slot.patientName}
-                        </div>
-                      )}
-                    </div>
-                    <Badge
-                      className={cn(
-                        slot.status === "available" && "bg-green-500",
-                        slot.status === "booked" && "bg-blue-500",
-                        slot.status === "unavailable" && "bg-gray-400"
-                      )}
-                    >
-                      {slot.status}
-                    </Badge>
-                  </div>
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <Card className="col-span-1">
+        <CardHeader>
+          <CardTitle>Select Date</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {doctors.length > 0 ? (
+            <div className="mb-4">
+              <select
+                className="w-full p-2 border rounded"
+                onChange={(e) => setSelectedDoctor(e.target.value)}
+                value={selectedDoctor || ''}
+              >
+                <option value="">All Doctors</option>
+                {doctors.map((doctor) => (
+                  <option key={doctor.id} value={doctor.id}>
+                    {doctor.name}
+                  </option>
                 ))}
-              </div>
-            ) : doctor && doctor.availability.days.includes(format(date, 'EEEE').toLowerCase()) ? (
-              <div className="text-center py-8 text-muted-foreground">
-                No schedule data available for this date. Doctor is generally available on this day.
-              </div>
-            ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                Doctor is not available on this day.
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+              </select>
+            </div>
+          ) : null}
+          <Calendar
+            mode="single"
+            selected={selectedDate}
+            onSelect={setSelectedDate}
+            className="rounded-md border"
+            classNames={{
+              day: "p-0 relative [&:has([data-selected])]:bg-accent",
+            }}
+            components={{
+              DayContent: ({ date, className, ...props }) => {
+                let dayClassName = className;
+                if (selectedDoctor) {
+                  const doctor = doctors.find(d => d.id === selectedDoctor);
+                  if (doctor) {
+                    const availabilityClass = renderDoctorAvailability(doctor)(date);
+                    dayClassName = cn(className, availabilityClass);
+                  }
+                }
+                
+                return (
+                  <div className={cn("relative h-full w-full p-2", dayClassName)}>
+                    <div>{date.getDate()}</div>
+                    {renderDateContent(date)}
+                  </div>
+                );
+              },
+            }}
+          />
+        </CardContent>
+      </Card>
+
+      <Card className="col-span-1 lg:col-span-2">
+        <CardHeader>
+          <CardTitle>
+            {selectedDate ? format(selectedDate, "MMMM d, yyyy") : "No Date Selected"}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="flex justify-center items-center py-10">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <span className="ml-2">Loading appointments...</span>
+            </div>
+          ) : selectedDateAppointments.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-muted-foreground">No appointments for this date</p>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {selectedDateAppointments.map((appointment) => (
+                <div key={appointment.id} className="relative flex">
+                  <div className="flex flex-col items-center mr-4">
+                    <div className="flex-none w-16 text-sm font-medium">
+                      {appointment.time}
+                    </div>
+                    <div className={cn(
+                      "mt-1 h-full w-px",
+                      appointment.status === "upcoming" ? "bg-primary" :
+                      appointment.status === "completed" ? "bg-green-400" : "bg-red-400"
+                    )} />
+                  </div>
+                  
+                  <div className={cn(
+                    "flex-1 p-4 rounded-lg border",
+                    appointment.status === "upcoming" ? "border-blue-200 bg-blue-50/50" :
+                    appointment.status === "completed" ? "border-green-200 bg-green-50/50" : 
+                    "border-red-200 bg-red-50/50"
+                  )}>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <Avatar className="h-10 w-10 border border-border">
+                          <AvatarImage src={appointment.patientAvatar} alt={appointment.patientName} />
+                          <AvatarFallback className="bg-primary/10 text-primary">
+                            {appointment.patientInitials}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <div className="font-medium">{appointment.patientName}</div>
+                          <div className="text-sm text-muted-foreground">{appointment.type}</div>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Badge variant="outline">
+                          {appointment.status === "upcoming" ? (
+                            <Clock className="mr-1 h-3 w-3" />
+                          ) : null}
+                          {appointment.status.charAt(0).toUpperCase() + appointment.status.slice(1)}
+                        </Badge>
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => onSelectAppointment(appointment)}
+                        >
+                          Details
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 };

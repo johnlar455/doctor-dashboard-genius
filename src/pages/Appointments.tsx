@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { AppointmentForm } from "@/components/appointments/AppointmentForm";
@@ -8,7 +9,8 @@ import { CalendarDays, List } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { Appointment, mapDatabaseAppointmentToFrontend, mapFrontendAppointmentToDatabase } from "@/types/appointment";
+import { Appointment, mapDatabaseAppointmentToFrontend, mapFrontendAppointmentToDatabase, AppointmentData } from "@/types/appointment";
+import { Doctor } from "@/types/doctor";
 
 // Types
 export type AppointmentStatus = "upcoming" | "completed" | "cancelled";
@@ -70,10 +72,22 @@ const Appointments = () => {
       // Calculate end time
       dbAppointment.end_time = calculateEndTime(appointmentData.time);
       
+      // Ensure required fields are present and not undefined
+      const appointmentToInsert = {
+        doctor_id: dbAppointment.doctor_id!,
+        patient_id: dbAppointment.patient_id!,
+        appointment_date: dbAppointment.appointment_date!,
+        start_time: dbAppointment.start_time!,
+        end_time: dbAppointment.end_time!,
+        type: dbAppointment.type!,
+        status: dbAppointment.status!,
+        notes: dbAppointment.notes
+      };
+      
       // Create a new appointment in the appointments table
       const { data, error } = await supabase
         .from('appointments')
-        .insert(dbAppointment)
+        .insert(appointmentToInsert)
         .select()
         .single();
 
@@ -82,13 +96,13 @@ const Appointments = () => {
       // Get doctor and patient details
       const { data: doctor } = await supabase
         .from('doctors')
-        .select('name, avatar')
+        .select('id, name, avatar, specialty, department, email, phone, bio, availability, created_at')
         .eq('id', appointmentData.doctorId)
         .single();
 
       const { data: patient } = await supabase
         .from('patients')
-        .select('name')
+        .select('id, name')
         .eq('id', appointmentData.patientId)
         .single();
 
@@ -126,13 +140,22 @@ const Appointments = () => {
       // Convert frontend appointment to database format
       const dbAppointment = mapFrontendAppointmentToDatabase(updatedAppointment);
       
+      // Ensure all required fields are present for the update
+      const appointmentToUpdate = {
+        doctor_id: dbAppointment.doctor_id!,
+        patient_id: dbAppointment.patient_id!,
+        appointment_date: dbAppointment.appointment_date!,
+        start_time: dbAppointment.start_time!,
+        end_time: calculateEndTime(updatedAppointment.time),
+        type: dbAppointment.type!,
+        status: dbAppointment.status!,
+        notes: dbAppointment.notes
+      };
+      
       // Update the appointment in the appointments table
       const { error } = await supabase
         .from('appointments')
-        .update({
-          ...dbAppointment,
-          end_time: calculateEndTime(updatedAppointment.time)
-        })
+        .update(appointmentToUpdate)
         .eq('id', updatedAppointment.id);
 
       if (error) throw error;

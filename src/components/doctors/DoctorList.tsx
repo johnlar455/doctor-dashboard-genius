@@ -27,10 +27,10 @@ import { Search, Edit, Trash, Calendar } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
 import { EditDoctorDialog } from "./EditDoctorDialog";
-import { format, parseISO } from "date-fns";
+import { format } from "date-fns";
 import { DoctorScheduleDialog } from "./DoctorScheduleDialog";
 import { supabase } from "@/integrations/supabase/client";
-import { Doctor } from "@/types/supabase";
+import { Doctor, parseDoctorAvailability } from "@/types/doctor";
 import { LoadingState } from "@/components/patients/details/LoadingState";
 import { ErrorState } from "@/components/patients/details/ErrorState";
 
@@ -55,7 +55,12 @@ export const DoctorList = () => {
         
         if (error) throw error;
         
-        setDoctors(data);
+        const transformedDoctors = data.map(doctor => ({
+          ...doctor,
+          availability: parseDoctorAvailability(doctor.availability)
+        })) as Doctor[];
+        
+        setDoctors(transformedDoctors);
         setError(null);
       } catch (err) {
         console.error('Error fetching doctors:', err);
@@ -103,25 +108,30 @@ export const DoctorList = () => {
     }
   };
 
-  const handleSaveDoctor = async (updatedDoctor: Doctor) => {
+  const handleSaveDoctor = async (updatedDoctorData: Doctor) => {
     try {
       const { data, error } = await supabase
         .from('doctors')
         .update({
-          name: updatedDoctor.name,
-          specialty: updatedDoctor.specialty,
-          department: updatedDoctor.department,
-          email: updatedDoctor.email,
-          phone: updatedDoctor.phone,
-          bio: updatedDoctor.bio,
-          availability: updatedDoctor.availability
+          name: updatedDoctorData.name,
+          specialty: updatedDoctorData.specialty,
+          department: updatedDoctorData.department,
+          email: updatedDoctorData.email,
+          phone: updatedDoctorData.phone,
+          bio: updatedDoctorData.bio,
+          availability: updatedDoctorData.availability
         })
-        .eq('id', updatedDoctor.id)
+        .eq('id', updatedDoctorData.id)
         .select();
       
       if (error) throw error;
       
-      setDoctors(doctors.map(doc => doc.id === updatedDoctor.id ? (data[0] as Doctor) : doc));
+      const updatedDoctor = {
+        ...data[0],
+        availability: parseDoctorAvailability(data[0].availability)
+      } as Doctor;
+      
+      setDoctors(doctors.map(doc => doc.id === updatedDoctorData.id ? updatedDoctor : doc));
       setEditingDoctor(null);
       toast({
         title: "Doctor updated",
