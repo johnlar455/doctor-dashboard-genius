@@ -37,7 +37,7 @@ interface User {
   name: string;
   email: string;
   role: string;
-  status: "active" | "disabled";
+  status: "active" | "disabled" | string; // Make status more flexible
   created_at: string;
 }
 
@@ -97,7 +97,13 @@ export const UserManagement = () => {
           },
         ];
         
-        setUsers(mockUsers);
+        // Update this part to properly type the status
+        const typedUsers: User[] = mockUsers.map(user => ({
+          ...user,
+          status: user.status as "active" | "disabled"
+        }));
+        
+        setUsers(typedUsers);
       } catch (error) {
         console.error("Error fetching users:", error);
         toast({

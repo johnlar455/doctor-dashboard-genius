@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { 
   Dialog, 
@@ -11,6 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Doctor } from "@/types/supabase";
+import { parseDoctorAvailability } from "@/types/doctor";
 import { format, isSameDay, startOfDay, endOfDay, addDays } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -48,7 +48,6 @@ export const DoctorScheduleDialog: React.FC<DoctorScheduleDialogProps> = ({
       try {
         setIsLoading(true);
         
-        // Get the doctor's schedule from the database
         const { data, error } = await supabase
           .from('doctor_schedules')
           .select('*, patients(name)')
@@ -58,13 +57,11 @@ export const DoctorScheduleDialog: React.FC<DoctorScheduleDialogProps> = ({
         
         if (error) throw error;
         
-        // If no schedules are found, generate default ones based on doctor availability
         if (!data || data.length === 0) {
           const today = new Date();
           const slots = generateDefaultSchedule(doctor, today);
           setScheduleSlots(slots);
         } else {
-          // Map database results to schedule slots
           const slots = data.map(slot => ({
             id: slot.id,
             date: new Date(slot.slot_date),
@@ -87,21 +84,18 @@ export const DoctorScheduleDialog: React.FC<DoctorScheduleDialogProps> = ({
     fetchDoctorSchedule();
   }, [doctor.id, open]);
   
-  // Generate default schedule based on doctor availability
   const generateDefaultSchedule = (doctor: Doctor, startDate: Date): ScheduleSlot[] => {
     const slots: ScheduleSlot[] = [];
-    const availableDays = doctor.availability.days;
-    const startTime = doctor.availability.start;
-    const endTime = doctor.availability.end;
+    const availability = parseDoctorAvailability(doctor.availability);
+    const availableDays = availability.days;
+    const startTime = availability.start;
+    const endTime = availability.end;
     
-    // Generate slots for the next 7 days
     for (let day = 0; day < 7; day++) {
       const currentDate = addDays(startDate, day);
       const dayName = format(currentDate, 'EEEE').toLowerCase();
       
-      // Check if the doctor is available on this day
       if (availableDays.includes(dayName)) {
-        // Generate hourly slots based on availability
         const [startHour, startMinute] = startTime.split(':').map(Number);
         const [endHour, endMinute] = endTime.split(':').map(Number);
         
@@ -111,7 +105,6 @@ export const DoctorScheduleDialog: React.FC<DoctorScheduleDialogProps> = ({
         const endDateTime = new Date(currentDate);
         endDateTime.setHours(endHour, endMinute, 0);
         
-        // Create hourly slots
         while (slotDate < endDateTime) {
           const slotStart = format(slotDate, 'HH:mm');
           
@@ -119,7 +112,6 @@ export const DoctorScheduleDialog: React.FC<DoctorScheduleDialogProps> = ({
           nextSlotDate.setHours(slotDate.getHours() + 1);
           const slotEnd = format(nextSlotDate, 'HH:mm');
           
-          // Randomly assign slot status for demo purposes
           const statusOptions: ("available" | "booked" | "unavailable")[] = ["available", "available", "available", "booked", "unavailable"];
           const randomStatus = statusOptions[Math.floor(Math.random() * statusOptions.length)];
           
@@ -140,7 +132,6 @@ export const DoctorScheduleDialog: React.FC<DoctorScheduleDialogProps> = ({
     return slots;
   };
   
-  // Group slots by day
   const slotsByDay = scheduleSlots.reduce((acc, slot) => {
     const day = format(slot.date, 'yyyy-MM-dd');
     if (!acc[day]) {
@@ -154,7 +145,6 @@ export const DoctorScheduleDialog: React.FC<DoctorScheduleDialogProps> = ({
     return acc;
   }, {} as Record<string, { date: Date; dayName: string; slots: ScheduleSlot[] }>);
   
-  // Convert to array and sort by date
   const next5DaysSchedule = Object.values(slotsByDay)
     .sort((a, b) => a.date.getTime() - b.date.getTime())
     .slice(0, 5);
@@ -187,13 +177,13 @@ export const DoctorScheduleDialog: React.FC<DoctorScheduleDialogProps> = ({
             <p className="text-sm text-muted-foreground">{doctor.specialty} • {doctor.department}</p>
             <div className="flex items-center gap-2 mt-1 text-xs">
               <span>Availability:</span>
-              {doctor.availability.days.map((day) => (
+              {parseDoctorAvailability(doctor.availability).days.map((day) => (
                 <Badge key={day} variant="outline" className="capitalize text-xs">
                   {day.substring(0, 3)}
                 </Badge>
               ))}
               <span className="ml-1">
-                {doctor.availability.start} - {doctor.availability.end}
+                {parseDoctorAvailability(doctor.availability).start} - {parseDoctorAvailability(doctor.availability).end}
               </span>
             </div>
           </div>

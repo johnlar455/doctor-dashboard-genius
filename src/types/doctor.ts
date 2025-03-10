@@ -1,6 +1,6 @@
 
 // This file ensures we have consistent Doctor types throughout the application
-import { Json } from "@/types/supabase";
+import { Json } from "@/integrations/supabase/types";
 
 export interface DoctorAvailability {
   start: string;
@@ -22,7 +22,7 @@ export interface Doctor {
 }
 
 // Convert from Supabase JSON to DoctorAvailability
-export const parseDoctorAvailability = (availability: Json): DoctorAvailability => {
+export const parseDoctorAvailability = (availability: any): DoctorAvailability => {
   if (typeof availability === 'string') {
     try {
       const parsed = JSON.parse(availability);

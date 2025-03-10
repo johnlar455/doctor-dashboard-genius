@@ -2,13 +2,13 @@
 import React, { useState } from "react";
 import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Appointment } from "@/pages/Appointments";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { format, isSameDay } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Clock, Loader2 } from "lucide-react";
+import { Appointment } from "@/types/appointment";
 
 interface AppointmentCalendarProps {
   appointments: Appointment[];

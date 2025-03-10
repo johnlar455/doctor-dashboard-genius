@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,21 +9,21 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { format } from "date-fns";
 import { CalendarIcon, Clock, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Appointment } from "@/types/supabase";
+import { Appointment } from "@/types/appointment";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Patient, Doctor } from "@/types/supabase";
 
 interface AppointmentFormProps {
   initialData: Appointment | null;
-  onSubmit: (appointment: any) => void;
+  onSubmit: (appointment: Appointment) => void;
   onCancel: () => void;
 }
 
 // Available appointment types
 const appointmentTypes = [
   "General Checkup",
-  "Consultation",
+  "Consultation", 
   "Follow-up",
   "Annual Physical",
   "Specialized Treatment",

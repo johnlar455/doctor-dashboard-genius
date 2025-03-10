@@ -1,6 +1,5 @@
-
 import React from "react";
-import { Link, useLocation } from "react-router-dom";
+import { useNavigate, Link, useLocation } from "react-router-dom";
 import { 
   BarChart3, 
   CalendarDays, 
@@ -14,6 +13,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
 
 interface SidebarProps {
   isOpen: boolean;
@@ -29,6 +29,7 @@ interface NavItem {
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
   const location = useLocation();
   const { profile, signOut } = useAuth();
+  const navigate = useNavigate();
 
   const navigation: NavItem[] = [
     { name: "Dashboard", path: "/", icon: Home },
@@ -40,17 +41,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
     { name: "Settings", path: "/settings", icon: Settings, roles: ["admin"] },
   ];
 
-  // Filter nav items based on user role
   const filteredNavigation = navigation.filter(
     item => !item.roles || (profile && item.roles.includes(profile.role))
   );
 
-  // Format user role with proper capitalization
   const formatRole = (role: string) => {
     return role.charAt(0).toUpperCase() + role.slice(1);
   };
 
-  // Format user initials
   const getUserInitials = () => {
     if (!profile?.full_name) return "U";
     

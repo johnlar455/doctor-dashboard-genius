@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Calendar } from "@/components/ui/calendar";
@@ -8,6 +7,7 @@ import { format, isSameDay } from "date-fns";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { Doctor } from "@/types/supabase";
+import { parseDoctorAvailability } from "@/types/doctor";
 import { LoadingState } from "@/components/patients/details/LoadingState";
 import { ErrorState } from "@/components/patients/details/ErrorState";
 
@@ -30,7 +30,6 @@ export const DoctorCalendar = () => {
   const [isLoadingSchedule, setIsLoadingSchedule] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch doctors from Supabase
   useEffect(() => {
     const fetchDoctors = async () => {
       try {
@@ -56,7 +55,6 @@ export const DoctorCalendar = () => {
     fetchDoctors();
   }, []);
 
-  // Fetch schedule when doctor or date changes
   useEffect(() => {
     const fetchDoctorSchedule = async () => {
       if (!selectedDoctor) return;
@@ -64,7 +62,6 @@ export const DoctorCalendar = () => {
       try {
         setIsLoadingSchedule(true);
         
-        // Get the doctor's schedule from the database for the selected date
         const startOfSelectedDate = new Date(date);
         startOfSelectedDate.setHours(0, 0, 0, 0);
         
@@ -81,7 +78,6 @@ export const DoctorCalendar = () => {
         
         if (error) throw error;
         
-        // If no schedules are found, generate default ones based on doctor availability
         if (!data || data.length === 0) {
           const doctor = doctors.find(d => d.id === selectedDoctor);
           if (doctor) {
@@ -91,7 +87,6 @@ export const DoctorCalendar = () => {
             setScheduleSlots([]);
           }
         } else {
-          // Map database results to schedule slots
           const slots = data.map(slot => ({
             id: slot.id,
             date: new Date(slot.slot_date),
@@ -114,18 +109,16 @@ export const DoctorCalendar = () => {
     fetchDoctorSchedule();
   }, [selectedDoctor, date, doctors]);
   
-  // Generate default schedule based on doctor availability
   const generateDefaultSchedule = (doctor: Doctor, selectedDate: Date): ScheduleSlot[] => {
     const slots: ScheduleSlot[] = [];
-    const availableDays = doctor.availability.days;
-    const startTime = doctor.availability.start;
-    const endTime = doctor.availability.end;
+    const availability = parseDoctorAvailability(doctor.availability);
+    const availableDays = availability.days;
+    const startTime = availability.start;
+    const endTime = availability.end;
     
-    // Check if the doctor is available on this day
     const dayName = format(selectedDate, 'EEEE').toLowerCase();
     
     if (availableDays.includes(dayName)) {
-      // Generate hourly slots based on availability
       const [startHour, startMinute] = startTime.split(':').map(Number);
       const [endHour, endMinute] = endTime.split(':').map(Number);
       
@@ -135,7 +128,6 @@ export const DoctorCalendar = () => {
       const endDateTime = new Date(selectedDate);
       endDateTime.setHours(endHour, endMinute, 0);
       
-      // Create hourly slots
       while (slotDate < endDateTime) {
         const slotStart = format(slotDate, 'HH:mm');
         
@@ -143,7 +135,6 @@ export const DoctorCalendar = () => {
         nextSlotDate.setHours(slotDate.getHours() + 1);
         const slotEnd = format(nextSlotDate, 'HH:mm');
         
-        // Randomly assign slot status for demo purposes
         const statusOptions: ("available" | "booked" | "unavailable")[] = ["available", "available", "available", "booked", "unavailable"];
         const randomStatus = statusOptions[Math.floor(Math.random() * statusOptions.length)];
         
@@ -165,7 +156,6 @@ export const DoctorCalendar = () => {
 
   const doctor = doctors.find(d => d.id === selectedDoctor);
 
-  // Get schedule for the selected date
   const daySchedule = scheduleSlots
     .filter(slot => isSameDay(slot.date, date))
     .sort((a, b) => a.start.localeCompare(b.start));
@@ -192,13 +182,13 @@ export const DoctorCalendar = () => {
         {doctor && (
           <div className="flex items-center text-sm text-muted-foreground gap-2">
             <span>Availability:</span>
-            {doctor.availability.days.map((day) => (
+            {parseDoctorAvailability(doctor.availability).days.map((day) => (
               <Badge key={day} variant="outline" className="capitalize">
                 {day}
               </Badge>
             ))}
             <span className="ml-2">
-              {doctor.availability.start} - {doctor.availability.end}
+              {parseDoctorAvailability(doctor.availability).start} - {parseDoctorAvailability(doctor.availability).end}
             </span>
           </div>
         )}

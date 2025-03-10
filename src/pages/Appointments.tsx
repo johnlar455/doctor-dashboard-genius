@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { AppointmentForm } from "@/components/appointments/AppointmentForm";
@@ -9,7 +8,7 @@ import { CalendarDays, List } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { Doctor, Patient, Appointment, AppointmentData } from "@/types/supabase";
+import { Appointment, mapDatabaseAppointmentToFrontend, mapFrontendAppointmentToDatabase } from "@/types/appointment";
 
 // Types
 export type AppointmentStatus = "upcoming" | "completed" | "cancelled";
@@ -51,39 +50,7 @@ const Appointments = () => {
       // Transform the data to match our Appointment interface
       const mappedAppointments = data
         .filter(appointment => appointment.patients !== null)
-        .map(appointment => {
-          const doctor = appointment.doctors;
-          const patient = appointment.patients;
-          
-          // Extract initials for doctor and patient
-          const doctorInitials = doctor.name
-            .split(' ')
-            .map(part => part[0])
-            .join('')
-            .toUpperCase();
-            
-          const patientInitials = patient ? patient.name
-            .split(' ')
-            .map(part => part[0])
-            .join('')
-            .toUpperCase() : '';
-
-          return {
-            id: appointment.id,
-            patientName: patient ? patient.name : '',
-            patientId: appointment.patient_id,
-            patientInitials: patientInitials,
-            doctorName: doctor.name,
-            doctorId: appointment.doctor_id,
-            doctorAvatar: doctor.avatar,
-            doctorInitials: doctorInitials,
-            time: appointment.start_time,
-            date: appointment.appointment_date,
-            status: appointment.status as AppointmentStatus,
-            type: appointment.type,
-            notes: appointment.notes || ""
-          };
-        });
+        .map(appointment => mapDatabaseAppointmentToFrontend(appointment));
 
       setAppointments(mappedAppointments);
     } catch (error) {
@@ -95,21 +62,18 @@ const Appointments = () => {
   };
 
   // Handle creating a new appointment
-  const handleCreateAppointment = async (appointmentData: Omit<Appointment, "id" | "patientInitials" | "doctorInitials">) => {
+  const handleCreateAppointment = async (appointmentData: Appointment) => {
     try {
+      // Convert frontend appointment data to database format
+      const dbAppointment = mapFrontendAppointmentToDatabase(appointmentData);
+      
+      // Calculate end time
+      dbAppointment.end_time = calculateEndTime(appointmentData.time);
+      
       // Create a new appointment in the appointments table
       const { data, error } = await supabase
         .from('appointments')
-        .insert({
-          doctor_id: appointmentData.doctorId,
-          patient_id: appointmentData.patientId,
-          appointment_date: appointmentData.date,
-          start_time: appointmentData.time,
-          end_time: calculateEndTime(appointmentData.time),
-          type: appointmentData.type,
-          status: 'upcoming',
-          notes: appointmentData.notes
-        })
+        .insert(dbAppointment)
         .select()
         .single();
 
@@ -128,35 +92,8 @@ const Appointments = () => {
         .eq('id', appointmentData.patientId)
         .single();
 
-      // Calculate initials
-      const doctorInitials = doctor.name
-        .split(' ')
-        .map(part => part[0])
-        .join('')
-        .toUpperCase();
-        
-      const patientInitials = patient.name
-        .split(' ')
-        .map(part => part[0])
-        .join('')
-        .toUpperCase();
-
-      // Add the new appointment to the state
-      const newAppointment: Appointment = {
-        id: data.id,
-        patientName: patient.name,
-        patientId: appointmentData.patientId,
-        patientInitials: patientInitials,
-        doctorName: doctor.name,
-        doctorId: appointmentData.doctorId,
-        doctorAvatar: doctor.avatar,
-        doctorInitials: doctorInitials,
-        time: appointmentData.time,
-        date: appointmentData.date,
-        status: 'upcoming',
-        type: appointmentData.type,
-        notes: appointmentData.notes
-      };
+      // Create a full appointment object from the database response
+      const newAppointment = mapDatabaseAppointmentToFrontend(data, doctor, patient);
 
       setAppointments([...appointments, newAppointment]);
       setIsFormOpen(false);
@@ -186,18 +123,15 @@ const Appointments = () => {
   // Handle updating an appointment
   const handleUpdateAppointment = async (updatedAppointment: Appointment) => {
     try {
+      // Convert frontend appointment to database format
+      const dbAppointment = mapFrontendAppointmentToDatabase(updatedAppointment);
+      
       // Update the appointment in the appointments table
       const { error } = await supabase
         .from('appointments')
         .update({
-          doctor_id: updatedAppointment.doctorId,
-          patient_id: updatedAppointment.patientId,
-          appointment_date: updatedAppointment.date,
-          start_time: updatedAppointment.time,
-          end_time: calculateEndTime(updatedAppointment.time),
-          type: updatedAppointment.type,
-          status: updatedAppointment.status,
-          notes: updatedAppointment.notes
+          ...dbAppointment,
+          end_time: calculateEndTime(updatedAppointment.time)
         })
         .eq('id', updatedAppointment.id);
 
