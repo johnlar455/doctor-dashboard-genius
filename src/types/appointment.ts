@@ -1,4 +1,3 @@
-
 import { AppointmentStatus } from "@/pages/Appointments";
 import { Doctor, Patient } from "@/types/supabase";
 
@@ -18,7 +17,7 @@ export interface AppointmentData {
   patients?: Patient;
 }
 
-// Define the frontend appointment type
+// Update frontend appointment type
 export interface Appointment {
   id: string;
   patientName: string;

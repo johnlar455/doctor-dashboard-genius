@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -8,12 +7,14 @@ import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { AddDoctorDialog } from "@/components/doctors/AddDoctorDialog";
 import { useToast } from "@/components/ui/use-toast";
-import { Doctor } from "@/types/supabase";
+import { Doctor } from "@/types/doctor";
+import { Appointment } from "@/types/appointment";
 import { supabase } from "@/integrations/supabase/client";
 
 const Doctors = () => {
   const [isAddDoctorOpen, setIsAddDoctorOpen] = useState(false);
   const [doctorAdded, setDoctorAdded] = useState<boolean>(false);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
   const { toast } = useToast();
 
   const handleDoctorAdded = (doctor: Doctor) => {
@@ -24,12 +25,15 @@ const Doctors = () => {
     setDoctorAdded(true);
   };
 
-  // Reset the doctorAdded state after it has been handled
   useEffect(() => {
     if (doctorAdded) {
       setDoctorAdded(false);
     }
   }, [doctorAdded]);
+
+  const handleSelectAppointment = (appointment: Appointment) => {
+    console.log('Selected appointment:', appointment);
+  };
 
   return (
     <DashboardLayout>
@@ -56,7 +60,10 @@ const Doctors = () => {
             <DoctorList key={doctorAdded ? 'refreshed' : 'initial'} />
           </TabsContent>
           <TabsContent value="calendar" className="mt-6">
-            <DoctorCalendar />
+            <DoctorCalendar 
+              appointments={appointments}
+              onSelectAppointment={handleSelectAppointment}
+            />
           </TabsContent>
         </Tabs>
       </div>

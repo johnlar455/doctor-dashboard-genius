@@ -27,12 +27,10 @@ export const DoctorCalendar: React.FC<DoctorCalendarProps> = ({
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [selectedDoctor, setSelectedDoctor] = useState<string | null>(null);
 
-  // Filter appointments by selected doctor
   const filteredAppointments = selectedDoctor
     ? appointments.filter((appointment) => appointment.doctorId === selectedDoctor)
     : appointments;
 
-  // Group appointments by date
   const appointmentsByDate = filteredAppointments.reduce((acc, appointment) => {
     const date = appointment.date;
     if (!acc[date]) {
@@ -42,7 +40,6 @@ export const DoctorCalendar: React.FC<DoctorCalendarProps> = ({
     return acc;
   }, {} as Record<string, Appointment[]>);
 
-  // Get appointments for the selected date
   const getAppointmentsForDate = (date: Date | undefined) => {
     if (!date) return [];
     
@@ -50,7 +47,6 @@ export const DoctorCalendar: React.FC<DoctorCalendarProps> = ({
     return appointmentsByDate[dateStr] || [];
   };
 
-  // Calendar rendering functions
   const renderDateContent = (date: Date) => {
     const dateStr = format(date, "yyyy-MM-dd");
     const dateAppointments = appointmentsByDate[dateStr] || [];
@@ -71,14 +67,11 @@ export const DoctorCalendar: React.FC<DoctorCalendarProps> = ({
     );
   };
 
-  // Sort appointments by time for the current date
   const selectedDateAppointments = getAppointmentsForDate(selectedDate)
     .sort((a, b) => {
-      // Simple time comparison - in a real app you might want to use a more robust approach
       return a.time.localeCompare(b.time);
     });
 
-  // Doctor availability rendering
   const renderDoctorAvailability = (doctor: Doctor) => {
     const availability = parseDoctorAvailability(doctor.availability);
     const availableDays = availability.days.map(day => day.toLowerCase());
@@ -123,18 +116,18 @@ export const DoctorCalendar: React.FC<DoctorCalendarProps> = ({
               day: "p-0 relative [&:has([data-selected])]:bg-accent",
             }}
             components={{
-              DayContent: ({ date, className, ...props }) => {
-                let dayClassName = className;
+              DayContent: ({ date }) => {
+                let dayClasses = "relative h-full w-full p-2";
                 if (selectedDoctor) {
                   const doctor = doctors.find(d => d.id === selectedDoctor);
                   if (doctor) {
                     const availabilityClass = renderDoctorAvailability(doctor)(date);
-                    dayClassName = cn(className, availabilityClass);
+                    dayClasses = cn(dayClasses, availabilityClass);
                   }
                 }
                 
                 return (
-                  <div className={cn("relative h-full w-full p-2", dayClassName)}>
+                  <div className={dayClasses}>
                     <div>{date.getDate()}</div>
                     {renderDateContent(date)}
                   </div>

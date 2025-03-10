@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { AppointmentForm } from "@/components/appointments/AppointmentForm";
@@ -42,8 +41,8 @@ const Appointments = () => {
           notes,
           doctor_id,
           patient_id,
-          doctors(id, name, avatar),
-          patients(id, name)
+          doctors(id, name, avatar, specialty, department, email, phone, bio, availability),
+          patients(id, name, gender, age, email, phone, date_of_birth, status)
         `)
         .order('appointment_date', { ascending: true });
 
