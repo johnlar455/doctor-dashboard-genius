@@ -26,6 +26,8 @@ export const DoctorScheduleDialog: React.FC<DoctorScheduleDialogProps> = ({
 }) => {
   // Parse availability (handle both Doctor and SupabaseDoctor types)
   const availability = typeof doctor.availability === 'object' && 
+                       doctor.availability !== null &&
+                       !Array.isArray(doctor.availability) &&
                        'days' in doctor.availability && 
                        'start' in doctor.availability && 
                        'end' in doctor.availability
@@ -33,6 +35,9 @@ export const DoctorScheduleDialog: React.FC<DoctorScheduleDialogProps> = ({
     : parseDoctorAvailability(doctor.availability);
     
   const { days, start, end } = availability;
+
+  // Ensure days is treated as an array
+  const daysArray = Array.isArray(days) ? days : [];
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -49,15 +54,15 @@ export const DoctorScheduleDialog: React.FC<DoctorScheduleDialogProps> = ({
             <div className="col-span-3 space-y-1">
               <h4 className="font-semibold">{doctor.name}'s Availability</h4>
               <p className="text-sm text-muted-foreground">
-                {days.length === 7 ? (
+                {daysArray.length === 7 ? (
                   "Available every day"
                 ) : (
                   <>
                     Available on:{" "}
-                    {days.map((day, index) => (
+                    {daysArray.map((day, index) => (
                       <span key={day}>
                         {day}
-                        {index < days.length - 1 ? ", " : ""}
+                        {index < daysArray.length - 1 ? ", " : ""}
                       </span>
                     ))}
                   </>
