@@ -54,6 +54,7 @@ export interface Patient {
   status: string;
   created_at: string;
   last_visit?: string;
+  avatar?: string | null;
 }
 
 export interface Appointment {

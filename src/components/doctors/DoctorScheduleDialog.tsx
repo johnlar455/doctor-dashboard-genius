@@ -23,7 +23,14 @@ export const DoctorScheduleDialog: React.FC<DoctorScheduleDialogProps> = ({
   open,
   onOpenChange,
 }) => {
-  const availability = doctor.availability;
+  // Parse availability if needed (important since doctor.availability might be Json)
+  const availability = typeof doctor.availability === 'object' && 
+                       'days' in doctor.availability && 
+                       'start' in doctor.availability && 
+                       'end' in doctor.availability
+    ? doctor.availability 
+    : parseDoctorAvailability(doctor.availability);
+    
   const { days, start, end } = availability;
 
   return (
