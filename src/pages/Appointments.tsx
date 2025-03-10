@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { AppointmentForm } from "@/components/appointments/AppointmentForm";
@@ -92,21 +93,22 @@ const Appointments = () => {
 
       if (error) throw error;
 
-      // Get doctor and patient details
-      const { data: doctor } = await supabase
+      // Get doctor details
+      const { data: doctorData } = await supabase
         .from('doctors')
-        .select('id, name, avatar, specialty, department, email, phone, bio, availability, created_at')
+        .select('*')
         .eq('id', appointmentData.doctorId)
         .single();
 
-      const { data: patient } = await supabase
+      // Get patient details
+      const { data: patientData } = await supabase
         .from('patients')
-        .select('id, name')
+        .select('*')
         .eq('id', appointmentData.patientId)
         .single();
 
       // Create a full appointment object from the database response
-      const newAppointment = mapDatabaseAppointmentToFrontend(data, doctor, patient);
+      const newAppointment = mapDatabaseAppointmentToFrontend(data, doctorData, patientData);
 
       setAppointments([...appointments, newAppointment]);
       setIsFormOpen(false);

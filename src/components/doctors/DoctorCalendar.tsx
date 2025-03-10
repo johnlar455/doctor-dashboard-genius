@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -178,7 +179,7 @@ export const DoctorCalendar: React.FC<DoctorCalendarProps> = ({
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-3">
                         <Avatar className="h-10 w-10 border border-border">
-                          <AvatarImage src={appointment.patientAvatar} alt={appointment.patientName} />
+                          <AvatarImage src={appointment.patientAvatar || ""} alt={appointment.patientName} />
                           <AvatarFallback className="bg-primary/10 text-primary">
                             {appointment.patientInitials}
                           </AvatarFallback>

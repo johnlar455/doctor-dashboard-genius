@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from "react";
 import { 
   Card, 
@@ -30,7 +31,7 @@ import { EditDoctorDialog } from "./EditDoctorDialog";
 import { format } from "date-fns";
 import { DoctorScheduleDialog } from "./DoctorScheduleDialog";
 import { supabase } from "@/integrations/supabase/client";
-import { Doctor, parseDoctorAvailability } from "@/types/doctor";
+import { Doctor, parseDoctorAvailability, serializeDoctorAvailability, DoctorAvailability } from "@/types/doctor";
 import { LoadingState } from "@/components/patients/details/LoadingState";
 import { ErrorState } from "@/components/patients/details/ErrorState";
 
@@ -110,6 +111,9 @@ export const DoctorList = () => {
 
   const handleSaveDoctor = async (updatedDoctorData: Doctor) => {
     try {
+      // Use the serializeDoctorAvailability function to properly format the availability field
+      const serializedAvailability = serializeDoctorAvailability(updatedDoctorData.availability as DoctorAvailability);
+      
       const { data, error } = await supabase
         .from('doctors')
         .update({
@@ -119,7 +123,7 @@ export const DoctorList = () => {
           email: updatedDoctorData.email,
           phone: updatedDoctorData.phone,
           bio: updatedDoctorData.bio,
-          availability: updatedDoctorData.availability
+          availability: serializedAvailability
         })
         .eq('id', updatedDoctorData.id)
         .select();
@@ -217,7 +221,7 @@ export const DoctorList = () => {
                       <TableCell>
                         <div className="flex items-center gap-3">
                           <Avatar>
-                            <AvatarImage src={doctor.avatar} />
+                            <AvatarImage src={doctor.avatar || undefined} />
                             <AvatarFallback>{getInitials(doctor.name)}</AvatarFallback>
                           </Avatar>
                           <div>
@@ -239,7 +243,7 @@ export const DoctorList = () => {
                         </div>
                       </TableCell>
                       <TableCell className="hidden lg:table-cell">
-                        {format(new Date(doctor.created_at), "MMM d, yyyy")}
+                        {doctor.created_at ? format(new Date(doctor.created_at), "MMM d, yyyy") : "N/A"}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">

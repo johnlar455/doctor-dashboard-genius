@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { departments, specialties } from "@/data/doctors";
-import { Doctor, parseDoctorAvailability } from "@/types/doctor";
+import { Doctor } from "@/types/doctor";
 
 interface EditDoctorDialogProps {
   doctor: Doctor;
@@ -29,7 +29,7 @@ export const EditDoctorDialog: React.FC<EditDoctorDialogProps> = ({
   onOpenChange,
   onSave
 }) => {
-  const availability = parseDoctorAvailability(doctor.availability);
+  const availability = doctor.availability;
   
   const [formData, setFormData] = useState({
     name: doctor.name,
@@ -45,7 +45,6 @@ export const EditDoctorDialog: React.FC<EditDoctorDialogProps> = ({
 
   // Update form data when doctor changes
   useEffect(() => {
-    const availability = parseDoctorAvailability(doctor.availability);
     setFormData({
       name: doctor.name,
       specialty: doctor.specialty,
@@ -53,9 +52,9 @@ export const EditDoctorDialog: React.FC<EditDoctorDialogProps> = ({
       email: doctor.email,
       phone: doctor.phone,
       bio: doctor.bio,
-      availableDays: availability.days,
-      startTime: availability.start,
-      endTime: availability.end
+      availableDays: doctor.availability.days,
+      startTime: doctor.availability.start,
+      endTime: doctor.availability.end
     });
   }, [doctor]);
 

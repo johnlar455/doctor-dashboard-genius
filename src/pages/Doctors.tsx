@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -15,7 +16,67 @@ const Doctors = () => {
   const [isAddDoctorOpen, setIsAddDoctorOpen] = useState(false);
   const [doctorAdded, setDoctorAdded] = useState<boolean>(false);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
+
+  // Fetch appointments
+  useEffect(() => {
+    const fetchAppointments = async () => {
+      try {
+        setIsLoading(true);
+        const { data, error } = await supabase
+          .from('appointments')
+          .select(`
+            id, 
+            appointment_date, 
+            start_time, 
+            end_time, 
+            type,
+            status,
+            notes,
+            doctor_id,
+            patient_id,
+            doctors(id, name, avatar),
+            patients(id, name)
+          `)
+          .order('appointment_date', { ascending: true });
+
+        if (error) throw error;
+
+        // Simple mapping for the calendar view
+        const mappedAppointments = data.map(appt => ({
+          id: appt.id,
+          doctorId: appt.doctor_id,
+          doctorName: appt.doctors?.name || 'Unknown Doctor',
+          doctorInitials: appt.doctors?.name ? appt.doctors.name.charAt(0) : 'U',
+          doctorAvatar: appt.doctors?.avatar || null,
+          patientId: appt.patient_id,
+          patientName: appt.patients?.name || 'Unknown Patient',
+          patientInitials: appt.patients?.name ? appt.patients.name.charAt(0) : 'U',
+          patientAvatar: null,
+          date: appt.appointment_date,
+          time: appt.start_time,
+          status: appt.status as any,
+          type: appt.type,
+          notes: appt.notes || ""
+        }));
+
+        setAppointments(mappedAppointments);
+      } catch (error) {
+        console.error('Error fetching appointments:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load appointments. Please try again.",
+          variant: "destructive"
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchAppointments();
+  }, [toast]);
 
   const handleDoctorAdded = (doctor: Doctor) => {
     toast({
@@ -61,8 +122,10 @@ const Doctors = () => {
           </TabsContent>
           <TabsContent value="calendar" className="mt-6">
             <DoctorCalendar 
+              doctors={doctors}
               appointments={appointments}
               onSelectAppointment={handleSelectAppointment}
+              isLoading={isLoading}
             />
           </TabsContent>
         </Tabs>

@@ -1,3 +1,4 @@
+
 import { AppointmentStatus } from "@/pages/Appointments";
 import { Doctor, Patient } from "@/types/supabase";
 
@@ -63,10 +64,10 @@ export const mapDatabaseAppointmentToFrontend = (
     patientName: patient?.name || appointmentData.patients?.name || '',
     patientId: appointmentData.patient_id,
     patientInitials,
-    patientAvatar: patient?.avatar || appointmentData.patients?.avatar,
+    patientAvatar: patient?.avatar || appointmentData.patients?.avatar || null,
     doctorName: doctor?.name || appointmentData.doctors?.name || '',
     doctorId: appointmentData.doctor_id,
-    doctorAvatar: doctor?.avatar || appointmentData.doctors?.avatar,
+    doctorAvatar: doctor?.avatar || appointmentData.doctors?.avatar || null,
     doctorInitials,
     time: appointmentData.start_time,
     date: appointmentData.appointment_date,

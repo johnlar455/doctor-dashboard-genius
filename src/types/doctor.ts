@@ -49,6 +49,8 @@ export const parseDoctorAvailability = (availability: Json): DoctorAvailability 
   };
 };
 
+// Serialize DoctorAvailability to JSON format for Supabase
 export const serializeDoctorAvailability = (availability: DoctorAvailability): Json => {
-  return availability as unknown as Json;
+  // Convert to a plain object that satisfies the Json type
+  return JSON.stringify(availability) as unknown as Json;
 };
