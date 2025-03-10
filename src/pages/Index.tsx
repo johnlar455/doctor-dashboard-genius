@@ -143,7 +143,7 @@ const Index = () => {
               <div className="space-y-1">
                 <div className="text-2xl font-bold">27</div>
                 <Badge variant="secondary">
-                  Status: available
+                  Status: busy
                 </Badge>
               </div>
             </CardContent>
@@ -200,15 +200,3 @@ const Index = () => {
 };
 
 export default Index;
-
-// If there's a type error with "available" not assignable to "busy",
-// we need to find and fix the specific line:
-// Assuming the error is on line 64, we need to modify it to use the correct type
-// If the status is expected to be "busy", change "available" to "busy"
-// Or update the type definition to include "available" as a valid status
-
-// For example, if there's code like:
-// status: "available", // This needs to be changed to match the expected type
-// Change it to:
-// status: "busy",
-// Or update the type definition

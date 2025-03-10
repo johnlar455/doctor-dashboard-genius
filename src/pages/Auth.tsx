@@ -30,7 +30,9 @@ const Auth = () => {
   
   // Redirect if already authenticated
   useEffect(() => {
+    console.log("Auth page auth check:", { session, loading });
     if (session && !loading) {
+      console.log("Already authenticated, redirecting to dashboard");
       navigate("/");
     }
   }, [session, loading, navigate]);
@@ -50,6 +52,9 @@ const Auth = () => {
       
       if (error) {
         toast.error(error.message);
+      } else {
+        toast.success("Sign in successful");
+        // The redirect will be handled by the auth state change listener
       }
     } catch (error: any) {
       toast.error(error.message || "Failed to sign in");
@@ -97,12 +102,25 @@ const Auth = () => {
     }
   };
   
+  // Show loading state while checking authentication
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
           <p className="mt-4 text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+  
+  // Don't render the auth form if already authenticated (should be redirected)
+  if (session) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-muted-foreground">You are already signed in. Redirecting...</p>
         </div>
       </div>
     );

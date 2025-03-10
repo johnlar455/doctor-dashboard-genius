@@ -36,22 +36,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [initialCheckDone, setInitialCheckDone] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
     // Set up the initial session and user
     const initializeAuth = async () => {
-      // First, check if there's an existing session
-      const { data: { session: currentSession } } = await supabase.auth.getSession();
-      
-      if (currentSession) {
-        setSession(currentSession);
-        setUser(currentSession.user);
-        // Fetch the user's profile
-        fetchProfile(currentSession.user.id);
+      try {
+        setLoading(true);
+        // First, check if there's an existing session
+        const { data: { session: currentSession } } = await supabase.auth.getSession();
+        
+        if (currentSession) {
+          console.log("Found existing session", currentSession);
+          setSession(currentSession);
+          setUser(currentSession.user);
+          // Fetch the user's profile
+          await fetchProfile(currentSession.user.id);
+        } else {
+          console.log("No session found");
+          setSession(null);
+          setUser(null);
+          setProfile(null);
+        }
+      } catch (error) {
+        console.error("Error initializing auth:", error);
+      } finally {
+        setLoading(false);
+        setInitialCheckDone(true);
       }
-      
-      setLoading(false);
     };
     
     initializeAuth();
@@ -59,19 +72,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Set up listener for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, newSession) => {
-        setSession(newSession);
-        setUser(newSession?.user ?? null);
+        console.log("Auth state changed:", event, newSession ? "session exists" : "no session");
         
-        if (newSession?.user) {
+        if (newSession) {
+          setSession(newSession);
+          setUser(newSession.user);
           await fetchProfile(newSession.user.id);
+          
+          // On sign-in, redirect to dashboard
+          if (event === "SIGNED_IN") {
+            navigate("/");
+          }
         } else {
+          setSession(null);
+          setUser(null);
           setProfile(null);
+          
+          // On sign-out, redirect to auth page
+          if (event === "SIGNED_OUT") {
+            navigate("/auth");
+          }
         }
         
-        // On sign-out, redirect to auth page
-        if (event === "SIGNED_OUT") {
-          navigate("/auth");
-        }
+        setLoading(false);
       }
     );
     
@@ -82,51 +105,80 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [navigate]);
   
   const fetchProfile = async (userId: string) => {
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", userId)
-      .single();
+    try {
+      console.log("Fetching profile for user:", userId);
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", userId)
+        .single();
+        
+      if (error) {
+        console.error("Error fetching profile:", error);
+        return;
+      }
       
-    if (error) {
-      console.error("Error fetching profile:", error);
-      return;
+      console.log("Profile data:", data);
+      setProfile(data as Profile);
+    } catch (error) {
+      console.error("Unexpected error fetching profile:", error);
     }
-    
-    setProfile(data as Profile);
   };
   
   const signUp = async (email: string, password: string, full_name: string, role: UserRole) => {
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          full_name,
-          role
+    try {
+      setLoading(true);
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name,
+            role
+          }
         }
-      }
-    });
-    
-    return { data, error };
+      });
+      
+      return { data, error };
+    } catch (error) {
+      return { data: null, error: error as Error };
+    } finally {
+      setLoading(false);
+    }
   };
   
   const signIn = async (email: string, password: string) => {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password
-    });
-    
-    if (!error && data.session) {
-      // Redirect to dashboard after successful login
-      navigate("/");
+    try {
+      setLoading(true);
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+      
+      if (error) {
+        console.error("Sign in error:", error);
+      } else {
+        console.log("Sign in successful", data);
+      }
+      
+      return { data, error };
+    } catch (error) {
+      console.error("Unexpected sign in error:", error);
+      return { data: null, error: error as Error };
+    } finally {
+      setLoading(false);
     }
-    
-    return { data, error };
   };
   
   const signOut = async () => {
-    await supabase.auth.signOut();
+    setLoading(true);
+    try {
+      await supabase.auth.signOut();
+    } catch (error) {
+      console.error("Error signing out:", error);
+    } finally {
+      setLoading(false);
+    }
   };
   
   const value = {
@@ -138,6 +190,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     signOut,
     loading
   };
+  
+  // Only render children when initial check is done to prevent flashing
+  if (!initialCheckDone) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-muted-foreground">Initializing...</p>
+        </div>
+      </div>
+    );
+  }
   
   return (
     <AuthContext.Provider value={value}>

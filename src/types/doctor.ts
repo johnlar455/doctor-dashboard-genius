@@ -1,6 +1,5 @@
 
 // This file ensures we have consistent Doctor types throughout the application
-import { Json } from "@/integrations/supabase/types";
 
 export interface DoctorAvailability {
   start: string;
@@ -17,7 +16,7 @@ export interface Doctor {
   phone: string;
   bio: string;
   avatar: string | null;
-  availability: DoctorAvailability | Json;
+  availability: DoctorAvailability | any; // Changed from Json to any to avoid import issues
   created_at?: string;
 }
 
