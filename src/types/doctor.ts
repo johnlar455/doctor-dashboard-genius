@@ -51,7 +51,7 @@ export const parseDoctorAvailability = (availability: Json): DoctorAvailability 
 
 // Serialize DoctorAvailability to JSON format for Supabase
 export const serializeDoctorAvailability = (availability: DoctorAvailability): Json => {
-  // Convert the DoctorAvailability to a plain object that conforms to Json type
+  // Create a plain object that conforms to Json type
   return {
     start: availability.start,
     end: availability.end,

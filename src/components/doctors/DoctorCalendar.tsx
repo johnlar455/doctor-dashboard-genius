@@ -9,8 +9,8 @@ import { format, isSameDay } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Clock, Loader2 } from "lucide-react";
 import { Appointment } from "@/types/appointment";
-import { Doctor } from "@/types/doctor";
-import { parseDoctorAvailability } from "@/types/doctor";
+import { Doctor, DoctorAvailability, parseDoctorAvailability } from "@/types/doctor";
+import { Json } from "@/integrations/supabase/types";
 
 interface DoctorCalendarProps {
   doctors?: Doctor[];
@@ -74,7 +74,7 @@ export const DoctorCalendar: React.FC<DoctorCalendarProps> = ({
     });
 
   const renderDoctorAvailability = (doctor: Doctor) => {
-    const availability = parseDoctorAvailability(doctor.availability);
+    const availability = parseDoctorAvailability(doctor.availability as unknown as Json);
     const availableDays = availability.days.map(day => day.toLowerCase());
     
     return (date: Date) => {

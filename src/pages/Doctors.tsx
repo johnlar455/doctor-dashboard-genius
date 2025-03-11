@@ -8,9 +8,10 @@ import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { AddDoctorDialog } from "@/components/doctors/AddDoctorDialog";
 import { useToast } from "@/components/ui/use-toast";
-import { Doctor } from "@/types/doctor";
+import { Doctor, DoctorAvailability, parseDoctorAvailability } from "@/types/doctor";
 import { Appointment } from "@/types/appointment";
 import { supabase } from "@/integrations/supabase/client";
+import { Doctor as SupabaseDoctor } from "@/types/supabase";
 
 const Doctors = () => {
   const [isAddDoctorOpen, setIsAddDoctorOpen] = useState(false);
@@ -78,11 +79,21 @@ const Doctors = () => {
     fetchAppointments();
   }, [toast]);
 
-  const handleDoctorAdded = (doctor: Doctor) => {
+  // Handle doctor added event with explicit type conversion
+  const handleDoctorAdded = (doctor: SupabaseDoctor | Doctor) => {
+    // Make sure to convert SupabaseDoctor to Doctor if necessary
+    const convertedDoctor: Doctor = {
+      ...doctor,
+      availability: 'availability' in doctor && typeof doctor.availability === 'object' && doctor.availability !== null 
+        ? doctor.availability as unknown as DoctorAvailability
+        : parseDoctorAvailability(doctor.availability)
+    };
+
     toast({
       title: "Doctor added successfully",
-      description: `${doctor.name} has been added to the system.`
+      description: `${convertedDoctor.name} has been added to the system.`
     });
+    
     setDoctorAdded(true);
   };
 

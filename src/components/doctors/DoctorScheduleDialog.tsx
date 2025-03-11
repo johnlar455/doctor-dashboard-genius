@@ -10,7 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Calendar } from "lucide-react";
 import { format } from "date-fns";
-import { Doctor, parseDoctorAvailability } from "@/types/doctor";
+import { Doctor, DoctorAvailability, parseDoctorAvailability } from "@/types/doctor";
 import { Doctor as SupabaseDoctor } from "@/types/supabase";
 
 interface DoctorScheduleDialogProps {
@@ -31,7 +31,7 @@ export const DoctorScheduleDialog: React.FC<DoctorScheduleDialogProps> = ({
                        'days' in doctor.availability && 
                        'start' in doctor.availability && 
                        'end' in doctor.availability
-    ? doctor.availability 
+    ? doctor.availability as DoctorAvailability
     : parseDoctorAvailability(doctor.availability);
     
   const { days, start, end } = availability;
