@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -74,7 +73,16 @@ export const DoctorCalendar: React.FC<DoctorCalendarProps> = ({
     });
 
   const renderDoctorAvailability = (doctor: Doctor) => {
-    const availability = parseDoctorAvailability(doctor.availability as unknown as Json);
+    const availability = typeof doctor.availability === 'object' && 
+                      doctor.availability !== null &&
+                      !Array.isArray(doctor.availability) &&
+                      'days' in doctor.availability && 
+                      'start' in doctor.availability && 
+                      'end' in doctor.availability
+      ? doctor.availability as DoctorAvailability
+      : parseDoctorAvailability(typeof doctor.availability === 'object' ? 
+          doctor.availability as any : doctor.availability);
+          
     const availableDays = availability.days.map(day => day.toLowerCase());
     
     return (date: Date) => {

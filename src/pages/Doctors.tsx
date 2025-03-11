@@ -84,9 +84,15 @@ const Doctors = () => {
     // Make sure to convert SupabaseDoctor to Doctor if necessary
     const convertedDoctor: Doctor = {
       ...doctor,
-      availability: 'availability' in doctor && typeof doctor.availability === 'object' && doctor.availability !== null 
-        ? doctor.availability as unknown as DoctorAvailability
-        : parseDoctorAvailability(doctor.availability)
+      availability: typeof doctor.availability === 'object' && 
+                   doctor.availability !== null &&
+                   !Array.isArray(doctor.availability) &&
+                   'days' in doctor.availability && 
+                   'start' in doctor.availability && 
+                   'end' in doctor.availability
+        ? doctor.availability as DoctorAvailability
+        : parseDoctorAvailability(typeof doctor.availability === 'object' ? 
+            doctor.availability as any : doctor.availability)
     };
 
     toast({
