@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { AddDoctorDialog } from "@/components/doctors/AddDoctorDialog";
 import { useToast } from "@/components/ui/use-toast";
-import { Doctor, DoctorAvailability, parseDoctorAvailability } from "@/types/doctor";
+import { Doctor, DoctorAvailability, parseDoctorAvailability, isDoctorAvailability } from "@/types/doctor";
 import { Appointment } from "@/types/appointment";
 import { supabase } from "@/integrations/supabase/client";
 import { Doctor as SupabaseDoctor } from "@/types/supabase";
@@ -79,20 +79,21 @@ const Doctors = () => {
     fetchAppointments();
   }, [toast]);
 
-  // Handle doctor added event with explicit type conversion
+  // Handle doctor added event
   const handleDoctorAdded = (doctor: SupabaseDoctor | Doctor) => {
-    // Make sure to convert SupabaseDoctor to Doctor if necessary
+    // Safely convert the availability property
+    let availability: DoctorAvailability;
+    
+    if (isDoctorAvailability(doctor.availability)) {
+      availability = doctor.availability;
+    } else {
+      availability = parseDoctorAvailability(doctor.availability);
+    }
+    
+    // Create a converted doctor object with the correct availability type
     const convertedDoctor: Doctor = {
-      ...doctor,
-      availability: typeof doctor.availability === 'object' && 
-                   doctor.availability !== null &&
-                   !Array.isArray(doctor.availability) &&
-                   'days' in doctor.availability && 
-                   'start' in doctor.availability && 
-                   'end' in doctor.availability
-        ? doctor.availability as DoctorAvailability
-        : parseDoctorAvailability(typeof doctor.availability === 'object' ? 
-            doctor.availability as any : doctor.availability)
+      ...doctor as any, // We'll override availability specifically
+      availability: availability
     };
 
     toast({

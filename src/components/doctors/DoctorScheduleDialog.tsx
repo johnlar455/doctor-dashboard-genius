@@ -10,11 +10,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { Calendar } from "lucide-react";
 import { format } from "date-fns";
-import { Doctor, DoctorAvailability, parseDoctorAvailability } from "@/types/doctor";
+import { Doctor as DoctorType, DoctorAvailability, parseDoctorAvailability, isDoctorAvailability } from "@/types/doctor";
 import { Doctor as SupabaseDoctor } from "@/types/supabase";
 
 interface DoctorScheduleDialogProps {
-  doctor: Doctor | SupabaseDoctor;
+  doctor: DoctorType | SupabaseDoctor;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
@@ -24,16 +24,14 @@ export const DoctorScheduleDialog: React.FC<DoctorScheduleDialogProps> = ({
   open,
   onOpenChange,
 }) => {
-  // Parse availability (handle both Doctor and SupabaseDoctor types)
-  const availability = typeof doctor.availability === 'object' && 
-                       doctor.availability !== null &&
-                       !Array.isArray(doctor.availability) &&
-                       'days' in doctor.availability && 
-                       'start' in doctor.availability && 
-                       'end' in doctor.availability
-    ? doctor.availability as DoctorAvailability
-    : parseDoctorAvailability(typeof doctor.availability === 'object' ? 
-        doctor.availability as any : doctor.availability);
+  // Parse availability
+  let availability: DoctorAvailability;
+  
+  if (isDoctorAvailability(doctor.availability)) {
+    availability = doctor.availability;
+  } else {
+    availability = parseDoctorAvailability(doctor.availability);
+  }
     
   const { days, start, end } = availability;
 
@@ -61,7 +59,7 @@ export const DoctorScheduleDialog: React.FC<DoctorScheduleDialogProps> = ({
                   <>
                     Available on:{" "}
                     {daysArray.map((day, index) => (
-                      <span key={day}>
+                      <span key={index}>
                         {day}
                         {index < daysArray.length - 1 ? ", " : ""}
                       </span>

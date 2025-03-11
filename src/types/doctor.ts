@@ -49,14 +49,21 @@ export const parseDoctorAvailability = (availability: Json): DoctorAvailability 
   };
 };
 
+// Safe way to check if an object is a DoctorAvailability
+export const isDoctorAvailability = (obj: any): obj is DoctorAvailability => {
+  return obj && 
+    typeof obj === 'object' &&
+    'start' in obj && 
+    'end' in obj && 
+    'days' in obj &&
+    Array.isArray(obj.days);
+};
+
 // Serialize DoctorAvailability to JSON format for Supabase
 export const serializeDoctorAvailability = (availability: DoctorAvailability): Json => {
-  // Create a plain object that can be stored as Json
-  const jsonObject: Record<string, any> = {
+  return {
     start: availability.start,
     end: availability.end,
     days: availability.days
-  };
-  
-  return jsonObject as Json;
+  } as unknown as Json;
 };

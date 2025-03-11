@@ -1,221 +1,179 @@
+
 import React, { useState } from "react";
 import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { format, isSameDay } from "date-fns";
-import { cn } from "@/lib/utils";
-import { Clock, Loader2 } from "lucide-react";
+import { Doctor, DoctorAvailability, parseDoctorAvailability, isDoctorAvailability } from "@/types/doctor";
 import { Appointment } from "@/types/appointment";
-import { Doctor, DoctorAvailability, parseDoctorAvailability } from "@/types/doctor";
-import { Json } from "@/integrations/supabase/types";
+import { format } from "date-fns";
+import { LoadingState } from "@/components/analytics/shared/LoadingState";
+import { cn } from "@/lib/utils";
 
 interface DoctorCalendarProps {
-  doctors?: Doctor[];
+  doctors: Doctor[];
   appointments: Appointment[];
   onSelectAppointment: (appointment: Appointment) => void;
   isLoading?: boolean;
 }
 
 export const DoctorCalendar: React.FC<DoctorCalendarProps> = ({
-  doctors = [],
+  doctors,
   appointments,
   onSelectAppointment,
   isLoading = false,
 }) => {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
-  const [selectedDoctor, setSelectedDoctor] = useState<string | null>(null);
+  
+  // Format date for display and comparison
+  const formattedSelectedDate = selectedDate 
+    ? format(selectedDate, 'yyyy-MM-dd') 
+    : '';
+  
+  // Filter appointments for the selected date
+  const filteredAppointments = appointments.filter(
+    (appointment) => appointment.date === formattedSelectedDate
+  );
 
-  const filteredAppointments = selectedDoctor
-    ? appointments.filter((appointment) => appointment.doctorId === selectedDoctor)
-    : appointments;
-
-  const appointmentsByDate = filteredAppointments.reduce((acc, appointment) => {
-    const date = appointment.date;
-    if (!acc[date]) {
-      acc[date] = [];
+  const appointmentsByDoctor: Record<string, Appointment[]> = {};
+  
+  filteredAppointments.forEach((appointment) => {
+    if (!appointmentsByDoctor[appointment.doctorId]) {
+      appointmentsByDoctor[appointment.doctorId] = [];
     }
-    acc[date].push(appointment);
-    return acc;
-  }, {} as Record<string, Appointment[]>);
+    appointmentsByDoctor[appointment.doctorId].push(appointment);
+  });
 
-  const getAppointmentsForDate = (date: Date | undefined) => {
-    if (!date) return [];
-    
-    const dateStr = format(date, "yyyy-MM-dd");
-    return appointmentsByDate[dateStr] || [];
-  };
+  // Format date for the header
+  const dateHeader = selectedDate 
+    ? format(selectedDate, 'EEEE, MMMM d, yyyy')
+    : 'Select a date';
+  
+  const timeSlots = Array.from({ length: 9 }, (_, i) => {
+    const hour = i + 9; // Starting from 9 AM
+    return `${hour}:00`;
+  });
 
-  const renderDateContent = (date: Date) => {
-    const dateStr = format(date, "yyyy-MM-dd");
-    const dateAppointments = appointmentsByDate[dateStr] || [];
-
-    if (dateAppointments.length === 0) return null;
-
-    const hasUpcoming = dateAppointments.some(a => a.status === "upcoming");
-    
-    return (
-      <div className="absolute bottom-0 left-0 right-0 flex justify-center">
-        <div 
-          className={cn(
-            "h-1.5 w-1.5 rounded-full",
-            hasUpcoming ? "bg-primary" : "bg-muted-foreground"
-          )}
-        />
-      </div>
+  // Get appointments for a specific doctor and time
+  const getAppointmentForTimeSlot = (doctorId: string, time: string) =>
+    appointmentsByDoctor[doctorId]?.find(
+      (appointment) => appointment.time === time
     );
-  };
-
-  const selectedDateAppointments = getAppointmentsForDate(selectedDate)
-    .sort((a, b) => {
-      return a.time.localeCompare(b.time);
-    });
 
   const renderDoctorAvailability = (doctor: Doctor) => {
-    const availability = typeof doctor.availability === 'object' && 
-                      doctor.availability !== null &&
-                      !Array.isArray(doctor.availability) &&
-                      'days' in doctor.availability && 
-                      'start' in doctor.availability && 
-                      'end' in doctor.availability
-      ? doctor.availability as DoctorAvailability
-      : parseDoctorAvailability(typeof doctor.availability === 'object' ? 
-          doctor.availability as any : doctor.availability);
-          
+    // Safely extract availability
+    let availability: DoctorAvailability;
+    
+    if (isDoctorAvailability(doctor.availability)) {
+      availability = doctor.availability;
+    } else {
+      availability = parseDoctorAvailability(doctor.availability);
+    }
+    
     const availableDays = availability.days.map(day => day.toLowerCase());
     
     return (date: Date) => {
-      const dayOfWeek = format(date, 'EEEE').toLowerCase();
-      const isAvailable = availableDays.includes(dayOfWeek);
-      
-      return isAvailable ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
+      const day = format(date, 'EEEE').toLowerCase();
+      return availableDays.includes(day);
     };
   };
 
+  if (isLoading) {
+    return <LoadingState message="Loading calendar..." />;
+  }
+
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      <Card className="col-span-1">
+    <div className="grid md:grid-cols-3 gap-6">
+      <Card className="md:col-span-1">
         <CardHeader>
           <CardTitle>Select Date</CardTitle>
         </CardHeader>
         <CardContent>
-          {doctors.length > 0 ? (
-            <div className="mb-4">
-              <select
-                className="w-full p-2 border rounded"
-                onChange={(e) => setSelectedDoctor(e.target.value)}
-                value={selectedDoctor || ''}
-              >
-                <option value="">All Doctors</option>
-                {doctors.map((doctor) => (
-                  <option key={doctor.id} value={doctor.id}>
-                    {doctor.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          ) : null}
           <Calendar
             mode="single"
             selected={selectedDate}
             onSelect={setSelectedDate}
             className="rounded-md border"
-            classNames={{
-              day: "p-0 relative [&:has([data-selected])]:bg-accent",
-            }}
-            components={{
-              DayContent: ({ date }) => {
-                let dayClasses = "relative h-full w-full p-2";
-                if (selectedDoctor) {
-                  const doctor = doctors.find(d => d.id === selectedDoctor);
-                  if (doctor) {
-                    const availabilityClass = renderDoctorAvailability(doctor)(date);
-                    dayClasses = cn(dayClasses, availabilityClass);
-                  }
-                }
-                
-                return (
-                  <div className={dayClasses}>
-                    <div>{date.getDate()}</div>
-                    {renderDateContent(date)}
-                  </div>
-                );
-              },
-            }}
           />
         </CardContent>
       </Card>
 
-      <Card className="col-span-1 lg:col-span-2">
+      <Card className="md:col-span-2">
         <CardHeader>
-          <CardTitle>
-            {selectedDate ? format(selectedDate, "MMMM d, yyyy") : "No Date Selected"}
-          </CardTitle>
+          <CardTitle>{dateHeader}</CardTitle>
         </CardHeader>
         <CardContent>
-          {isLoading ? (
-            <div className="flex justify-center items-center py-10">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              <span className="ml-2">Loading appointments...</span>
-            </div>
-          ) : selectedDateAppointments.length === 0 ? (
-            <div className="text-center py-8">
-              <p className="text-muted-foreground">No appointments for this date</p>
+          {doctors.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse">
+                <thead>
+                  <tr>
+                    <th className="py-2 px-3 text-left font-medium text-sm">Time</th>
+                    {doctors.map((doctor) => (
+                      <th key={doctor.id} className="py-2 px-3 text-left font-medium text-sm">
+                        <div className="flex items-center space-x-2">
+                          <Avatar className="h-8 w-8">
+                            <AvatarImage src={doctor.avatar || undefined} alt={doctor.name} />
+                            <AvatarFallback>{doctor.name.charAt(0)}</AvatarFallback>
+                          </Avatar>
+                          <span>{doctor.name}</span>
+                        </div>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {timeSlots.map((time) => (
+                    <tr key={time} className="border-t">
+                      <td className="py-2 px-3">{time}</td>
+                      {doctors.map((doctor) => {
+                        const appointment = getAppointmentForTimeSlot(doctor.id, time);
+                        
+                        return (
+                          <td 
+                            key={`${doctor.id}-${time}`} 
+                            className={cn(
+                              "py-2 px-3",
+                              appointment ? "cursor-pointer hover:bg-muted/50" : ""
+                            )}
+                            onClick={() => appointment && onSelectAppointment(appointment)}
+                          >
+                            {appointment ? (
+                              <div className="flex items-center space-x-2">
+                                <Avatar className="h-6 w-6">
+                                  <AvatarFallback>{appointment.patientInitials}</AvatarFallback>
+                                </Avatar>
+                                <div className="flex flex-col">
+                                  <span className="text-sm font-medium">{appointment.patientName}</span>
+                                  <div className="flex items-center space-x-1">
+                                    <Badge 
+                                      variant="outline" 
+                                      className={cn(
+                                        appointment.status === "completed" && "bg-green-100 text-green-800 border-green-300",
+                                        appointment.status === "cancelled" && "bg-red-100 text-red-800 border-red-300",
+                                        appointment.status === "upcoming" && "bg-blue-100 text-blue-800 border-blue-300"
+                                      )}
+                                    >
+                                      {appointment.status}
+                                    </Badge>
+                                    <span className="text-xs text-muted-foreground">{appointment.type}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="h-[38px]"></div> // Empty cell with same height as appointments
+                            )}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           ) : (
-            <div className="space-y-6">
-              {selectedDateAppointments.map((appointment) => (
-                <div key={appointment.id} className="relative flex">
-                  <div className="flex flex-col items-center mr-4">
-                    <div className="flex-none w-16 text-sm font-medium">
-                      {appointment.time}
-                    </div>
-                    <div className={cn(
-                      "mt-1 h-full w-px",
-                      appointment.status === "upcoming" ? "bg-primary" :
-                      appointment.status === "completed" ? "bg-green-400" : "bg-red-400"
-                    )} />
-                  </div>
-                  
-                  <div className={cn(
-                    "flex-1 p-4 rounded-lg border",
-                    appointment.status === "upcoming" ? "border-blue-200 bg-blue-50/50" :
-                    appointment.status === "completed" ? "border-green-200 bg-green-50/50" : 
-                    "border-red-200 bg-red-50/50"
-                  )}>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-3">
-                        <Avatar className="h-10 w-10 border border-border">
-                          <AvatarImage src={appointment.patientAvatar || ""} alt={appointment.patientName} />
-                          <AvatarFallback className="bg-primary/10 text-primary">
-                            {appointment.patientInitials}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <div className="font-medium">{appointment.patientName}</div>
-                          <div className="text-sm text-muted-foreground">{appointment.type}</div>
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Badge variant="outline">
-                          {appointment.status === "upcoming" ? (
-                            <Clock className="mr-1 h-3 w-3" />
-                          ) : null}
-                          {appointment.status.charAt(0).toUpperCase() + appointment.status.slice(1)}
-                        </Badge>
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          onClick={() => onSelectAppointment(appointment)}
-                        >
-                          Details
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
+            <div className="text-center py-4 text-muted-foreground">
+              No doctors available. Please add doctors first.
             </div>
           )}
         </CardContent>
