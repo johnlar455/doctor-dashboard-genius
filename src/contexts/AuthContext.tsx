@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
@@ -52,7 +51,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           console.log("Found existing session", currentSession);
           setSession(currentSession);
           setUser(currentSession.user);
-          // Fetch the user's profile
+          // Fetch the user's profile or create one from metadata if fetch fails
           await fetchProfile(currentSession.user.id);
         } else {
           console.log("No session found");
@@ -118,6 +117,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
       if (error) {
         console.error("Error fetching profile:", error);
+        
+        // Create a fallback profile using user metadata if available
+        if (user && user.user_metadata) {
+          const role = user.user_metadata.role as UserRole;
+          const full_name = user.user_metadata.full_name as string;
+          
+          if (role) {
+            console.log("Creating fallback profile from user metadata:", { role, full_name });
+            setProfile({
+              id: userId,
+              role: role,
+              full_name: full_name || null,
+              created_at: new Date().toISOString()
+            });
+          }
+        }
         return;
       }
       
@@ -125,6 +140,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setProfile(data as Profile);
     } catch (error) {
       console.error("Unexpected error fetching profile:", error);
+      
+      // Create a fallback profile using user metadata if available
+      if (user && user.user_metadata) {
+        const role = user.user_metadata.role as UserRole;
+        const full_name = user.user_metadata.full_name as string;
+        
+        if (role) {
+          console.log("Creating fallback profile from user metadata after error:", { role, full_name });
+          setProfile({
+            id: userId,
+            role: role,
+            full_name: full_name || null,
+            created_at: new Date().toISOString()
+          });
+        }
+      }
     }
   };
   

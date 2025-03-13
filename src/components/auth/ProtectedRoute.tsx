@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -12,14 +13,14 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   children, 
   requiredRoles = [] 
 }) => {
-  const { session, profile, loading } = useAuth();
+  const { session, profile, user, loading } = useAuth();
   const navigate = useNavigate();
   const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
   
   useEffect(() => {
     // Only check authorization when loading is complete
     if (!loading) {
-      console.log("ProtectedRoute auth check:", { session, profile, requiredRoles });
+      console.log("ProtectedRoute auth check:", { session, profile, user, requiredRoles });
       
       // If not authenticated, redirect to auth page
       if (!session) {
@@ -29,25 +30,34 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
         return;
       }
       
-      // If roles are specified and user doesn't have one of the required roles
-      if (
-        requiredRoles.length > 0 && 
-        profile &&
-        !requiredRoles.includes(profile.role)
-      ) {
-        console.log("Insufficient permissions:", profile.role, "not in", requiredRoles);
-        // Show insufficient permissions toast
-        toast.error("Insufficient permissions to access this page");
-        // Redirect to dashboard
-        setIsAuthorized(false);
-        navigate("/");
-        return;
+      // If roles are specified, check if user has required role
+      if (requiredRoles.length > 0) {
+        // First check profile.role if profile is available
+        if (profile && !requiredRoles.includes(profile.role)) {
+          console.log("Insufficient permissions (profile):", profile.role, "not in", requiredRoles);
+          toast.error("Insufficient permissions to access this page");
+          setIsAuthorized(false);
+          navigate("/");
+          return;
+        }
+        
+        // If profile is not available, check user metadata
+        if (!profile && user?.user_metadata?.role) {
+          const userRole = user.user_metadata.role as "admin" | "doctor" | "nurse" | "staff";
+          if (!requiredRoles.includes(userRole)) {
+            console.log("Insufficient permissions (metadata):", userRole, "not in", requiredRoles);
+            toast.error("Insufficient permissions to access this page");
+            setIsAuthorized(false);
+            navigate("/");
+            return;
+          }
+        }
       }
       
       // User is authorized
       setIsAuthorized(true);
     }
-  }, [session, profile, loading, navigate, requiredRoles]);
+  }, [session, profile, user, loading, navigate, requiredRoles]);
   
   // Show loading state while checking authentication
   if (loading || isAuthorized === null) {

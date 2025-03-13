@@ -42,8 +42,23 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
     { name: "Settings", path: "/settings", icon: Settings, roles: ["admin"] },
   ];
 
+  // Get user role from profile or user metadata
+  const getUserRole = (): "admin" | "doctor" | "nurse" | "staff" | undefined => {
+    if (profile) {
+      return profile.role;
+    }
+    
+    if (user?.user_metadata?.role) {
+      return user.user_metadata.role as "admin" | "doctor" | "nurse" | "staff";
+    }
+    
+    return undefined;
+  };
+  
+  const userRole = getUserRole();
+
   const filteredNavigation = navigation.filter(
-    item => !item.roles || (profile && item.roles.includes(profile.role))
+    item => !item.roles || (userRole && item.roles.includes(userRole))
   );
 
   const formatRole = (role: string) => {
@@ -54,6 +69,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
     if (profile?.full_name) {
       return profile.full_name;
     }
+    if (user?.user_metadata?.full_name) {
+      return user.user_metadata.full_name;
+    }
     if (user?.email) {
       // If no name, use email as fallback
       return user.email.split('@')[0]; // Use part before @
@@ -62,15 +80,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
   };
 
   const getUserInitials = () => {
-    if (!profile?.full_name) {
-      // If we have a user email but no profile name, use the first letter of the email
+    let fullName = profile?.full_name || user?.user_metadata?.full_name;
+    
+    if (!fullName) {
+      // If we have a user email but no name, use the first letter of the email
       if (user?.email) {
         return user.email.charAt(0).toUpperCase();
       }
       return "U";
     }
     
-    const nameParts = profile.full_name.split(" ");
+    const nameParts = fullName.split(" ");
     if (nameParts.length >= 2) {
       return `${nameParts[0][0]}${nameParts[nameParts.length - 1][0]}`.toUpperCase();
     }
@@ -151,7 +171,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
                   {getUserName()}
                 </p>
                 <p className="text-xs text-muted-foreground truncate">
-                  {profile ? formatRole(profile.role) : user ? "User" : "Guest"}
+                  {userRole ? formatRole(userRole) : "User"}
                 </p>
               </div>
             </div>
